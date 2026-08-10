@@ -181,3 +181,34 @@ class ConversationRepository:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def get_message_by_id(self, message_id: int) -> Optional[Message]:
+        """Fetch a single message by primary key."""
+        result = await self.db.execute(
+            select(Message).where(Message.id == message_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def delete_message(self, message: Message) -> None:
+        """Hard-delete a single message from the database."""
+        await self.db.delete(message)
+        await self.db.flush()
+        logger.debug("Message deleted", message_id=message.id)
+
+    async def get_recent_messages_for_user(
+        self, user_id: int, limit: int = 50
+    ) -> List[Message]:
+        """
+        Fetch the most recent messages across ALL of a user's conversations.
+        Useful for a global message feed.
+        """
+        user_conversations = (
+            select(Conversation.id).where(Conversation.user_id == user_id).scalar_subquery()
+        )
+        result = await self.db.execute(
+            select(Message)
+            .where(Message.conversation_id.in_(user_conversations))
+            .order_by(Message.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
