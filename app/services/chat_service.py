@@ -24,7 +24,6 @@ from app.core.exceptions import AppException, NotFoundException, AuthorizationEx
 from app.core.logging import get_logger
 from app.models.conversation import Conversation, Message
 from app.prompts.summary_prompt import format_messages_for_summary, get_summary_prompt
-from app.prompts.system_prompt import get_system_prompt
 from app.repositories.conversation import ConversationRepository
 from app.schemas.chat import (
     ConversationCreate,
