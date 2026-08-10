@@ -1,0 +1,377 @@
+"""
+Emora Backend - Chat Service
+
+Responsibilities:
+  - Orchestrate all Chat Module business logic.
+  - Manage conversation lifecycle (create, list, delete).
+  - Retrieve and paginate message history.
+  - Stream AI responses from Groq LLM.
+  - Generate conversation summaries via Groq.
+  - Search messages across user conversations.
+
+This service sits between the API layer and the repository layer, following
+the Service Layer Pattern. It has no direct SQL queries — those belong in
+ConversationRepository.
+"""
+
+from typing import AsyncGenerator, List, Optional, Sequence
+
+from groq import AsyncGroq
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.core.exceptions import AppException, NotFoundException, AuthorizationException
+from app.core.logging import get_logger
+from app.models.conversation import Conversation, Message
+from app.prompts.summary_prompt import format_messages_for_summary, get_summary_prompt
+from app.prompts.system_prompt import get_system_prompt
+from app.repositories.conversation import ConversationRepository
+from app.schemas.chat import (
+    ConversationCreate,
+    SearchResult,
+)
+
+logger = get_logger(__name__)
+
+
+class ChatService:
+    """
+    Service layer for all Chat Module operations.
+
+    Args:
+        db: The async SQLAlchemy database session injected per request.
+    """
+
+    def __init__(self, db: AsyncSession) -> None:
+        self._db = db
+        self._repo = ConversationRepository(db)
+        self._groq = AsyncGroq(api_key=settings.GROQ_API_KEY)
+
+    # ─── Conversation Management ───────────────────────────────────────────────
+
+    async def start_conversation(
+        self, user_id: int, payload: ConversationCreate
+    ) -> Conversation:
+        """
+        Create a new conversation for a user.
+
+        Args:
+            user_id: ID of the authenticated user.
+            payload: The creation payload containing an optional title.
+
+        Returns:
+            The newly created Conversation ORM instance.
+        """
+        title = payload.title or "New Conversation"
+        conversation = await self._repo.create_conversation(
+            user_id=user_id, title=title
+        )
+        logger.info("Conversation started", user_id=user_id, conversation_id=conversation.id)
+        return conversation
+
+    async def list_conversations(
+        self,
+        user_id: int,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> Sequence[Conversation]:
+        """
+        Return all conversations for the given user, newest first.
+
+        Args:
+            user_id: ID of the authenticated user.
+            skip: Offset for pagination.
+            limit: Maximum number of conversations to return.
+
+        Returns:
+            List of Conversation ORM instances.
+        """
+        return await self._repo.get_conversations_by_user(
+            user_id=user_id, skip=skip, limit=limit
+        )
+
+    async def get_conversation(
+        self, conversation_id: int, user_id: int
+    ) -> Conversation:
+        """
+        Fetch a single conversation, enforcing ownership.
+
+        Args:
+            conversation_id: Primary key of the conversation.
+            user_id: ID of the currently authenticated user.
+
+        Raises:
+            NotFoundException: If the conversation does not exist.
+            ForbiddenException: If the conversation belongs to another user.
+
+        Returns:
+            The Conversation ORM instance.
+        """
+        conversation = await self._repo.get_conversation_by_id(conversation_id)
+        if not conversation:
+            raise NotFoundException(f"Conversation {conversation_id} not found.")
+        if conversation.user_id != user_id:
+            raise AuthorizationException("You do not have access to this conversation.")
+        return conversation
+
+    async def delete_conversation(
+        self, conversation_id: int, user_id: int
+    ) -> None:
+        """
+        Delete a conversation and all its messages.
+
+        Args:
+            conversation_id: Primary key of the conversation.
+            user_id: ID of the currently authenticated user.
+
+        Raises:
+            NotFoundException: If the conversation does not exist.
+            ForbiddenException: If the conversation belongs to another user.
+        """
+        conversation = await self.get_conversation(conversation_id, user_id)
+        await self._repo.delete_conversation(conversation.id)
+        logger.info(
+            "Conversation deleted",
+            conversation_id=conversation_id,
+            user_id=user_id,
+        )
+
+    # ─── Message History ───────────────────────────────────────────────────────
+
+    async def get_messages(
+        self,
+        conversation_id: int,
+        user_id: int,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> Sequence[Message]:
+        """
+        Retrieve paginated message history for a conversation.
+
+        Verifies that the conversation belongs to the requesting user.
+
+        Args:
+            conversation_id: Primary key of the conversation.
+            user_id: ID of the currently authenticated user.
+            skip: Offset for pagination.
+            limit: Maximum number of messages to return.
+
+        Returns:
+            List of Message ORM instances in chronological order.
+        """
+        await self.get_conversation(conversation_id, user_id)  # Enforces ownership
+        return await self._repo.get_messages_by_conversation(
+            conversation_id=conversation_id, skip=skip, limit=limit
+        )
+
+    # ─── AI Response Streaming ─────────────────────────────────────────────────
+
+    async def stream_response(
+        self,
+        conversation_id: int,
+        user_id: int,
+        user_message: str,
+    ) -> AsyncGenerator[str, None]:
+        """
+        Core AI response pipeline:
+          1. Verify conversation ownership.
+          2. Persist the user's message.
+          3. Build the LLM context from recent message history + system prompt.
+          4. Stream tokens from Groq LLM.
+          5. Collect and persist the full assistant response.
+          6. Update the conversation's updated_at timestamp.
+
+        Args:
+            conversation_id: Primary key of the conversation.
+            user_id: ID of the authenticated user.
+            user_message: The message content sent by the user.
+
+        Yields:
+            Individual text tokens from the LLM stream.
+        """
+        # 1 — Verify conversation ownership
+        conversation = await self.get_conversation(conversation_id, user_id)
+
+        # 2 — Persist user message
+        await self._repo.create_message(
+            conversation_id=conversation_id,
+            role="user",
+            content=user_message,
+        )
+
+        # 3 — Build context: system prompt + recent message history
+        recent_messages = await self._repo.get_recent_messages(
+            conversation_id=conversation_id, limit=20
+        )
+        groq_messages = [{"role": "system", "content": get_system_prompt()}]
+        for msg in recent_messages:
+            groq_messages.append({"role": msg.role, "content": msg.content})
+
+        # 4 — Stream tokens from Groq
+        logger.info(
+            "Streaming AI response",
+            conversation_id=conversation_id,
+            user_id=user_id,
+            context_length=len(groq_messages),
+        )
+
+        full_response_parts: List[str] = []
+
+        try:
+            stream = await self._groq.chat.completions.create(
+                model=settings.GROQ_MODEL,
+                messages=groq_messages,
+                stream=True,
+                temperature=0.7,
+                max_tokens=1024,
+            )
+
+            async for chunk in stream:
+                token = chunk.choices[0].delta.content
+                if token:
+                    full_response_parts.append(token)
+                    yield token
+
+        except Exception as exc:
+            logger.error(
+                "Groq streaming failed",
+                conversation_id=conversation_id,
+                error=str(exc),
+            )
+            error_message = (
+                "I'm sorry, I'm having trouble connecting right now. "
+                "Please try again in a moment."
+            )
+            yield error_message
+            full_response_parts = [error_message]
+
+        # 5 — Persist full assistant response
+        full_response = "".join(full_response_parts)
+        await self._repo.create_message(
+            conversation_id=conversation_id,
+            role="assistant",
+            content=full_response,
+        )
+
+        # 6 — Touch the conversation's updated_at so it sorts correctly
+        await self._repo.update_conversation(conversation)
+        logger.info(
+            "AI response persisted",
+            conversation_id=conversation_id,
+            response_length=len(full_response),
+        )
+
+    # ─── Conversation Summary ──────────────────────────────────────────────────
+
+    async def summarize_conversation(
+        self, conversation_id: int, user_id: int
+    ) -> str:
+        """
+        Generate and persist a natural-language summary of the conversation.
+
+        Sends all messages to the Groq LLM with a summarization prompt,
+        stores the result in conversation.summary, and returns it.
+
+        Args:
+            conversation_id: Primary key of the conversation.
+            user_id: ID of the currently authenticated user.
+
+        Returns:
+            The generated summary string.
+        """
+        conversation = await self.get_conversation(conversation_id, user_id)
+        messages = await self._repo.get_messages_by_conversation(conversation_id)
+
+        if not messages:
+            raise AppException(
+                status_code=400,
+                message="Cannot summarize an empty conversation.",
+            )
+
+        # Build the summary prompt
+        history_text = format_messages_for_summary(list(messages))
+        prompt = get_summary_prompt(history_text)
+
+        # Call Groq (non-streaming for summary)
+        logger.info("Generating conversation summary", conversation_id=conversation_id)
+        try:
+            response = await self._groq.chat.completions.create(
+                model=settings.GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a clinical summary assistant."},
+                    {"role": "user", "content": prompt},
+                ],
+                stream=False,
+                temperature=0.3,
+                max_tokens=256,
+            )
+            summary = response.choices[0].message.content or ""
+        except Exception as exc:
+            logger.error(
+                "Groq summarization failed",
+                conversation_id=conversation_id,
+                error=str(exc),
+            )
+            raise AppException(
+                status_code=503,
+                message="AI summarization service is temporarily unavailable.",
+            )
+
+        # Persist the summary
+        await self._repo.update_conversation(conversation, summary=summary)
+        logger.info(
+            "Conversation summary saved",
+            conversation_id=conversation_id,
+            summary_length=len(summary),
+        )
+        return summary
+
+    # ─── Search ────────────────────────────────────────────────────────────────
+
+    async def search_conversations(
+        self, user_id: int, query: str, limit: int = 20
+    ) -> List[SearchResult]:
+        """
+        Full-text search across all of the user's messages.
+
+        Args:
+            user_id: ID of the currently authenticated user.
+            query: The search string.
+            limit: Maximum number of results to return.
+
+        Returns:
+            List of SearchResult schema instances with message context.
+        """
+        if not query or len(query.strip()) < 2:
+            raise AppException(
+                status_code=400,
+                message="Search query must be at least 2 characters.",
+            )
+
+        messages = await self._repo.search_messages(
+            user_id=user_id, query=query.strip(), limit=limit
+        )
+
+        results: List[SearchResult] = []
+        for msg in messages:
+            # Lazy load the conversation title for each result
+            conv = await self._repo.get_conversation_by_id(msg.conversation_id)
+            if conv:
+                results.append(
+                    SearchResult(
+                        message_id=msg.id,
+                        conversation_id=msg.conversation_id,
+                        conversation_title=conv.title,
+                        role=msg.role,
+                        content=msg.content,
+                        created_at=msg.created_at,
+                    )
+                )
+
+        logger.info(
+            "Search completed",
+            user_id=user_id,
+            query=query,
+            results_count=len(results),
+        )
+        return results

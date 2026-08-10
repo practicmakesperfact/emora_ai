@@ -1,0 +1,9 @@
+"""Generic single-database configuration with an async dbapi."""
+from alembic import context
+
+
+def process_revision_directives(context, revision, directives):
+    if config.cmd_opts and config.cmd_opts.autogenerate:
+        script = directives[0]
+        if script.upgrade_ops.is_empty():
+            directives[:] = []

@@ -1,0 +1,30 @@
+# Environments
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python Virtual Environments
+.venv/
+.venv-linux/
+venv/
+env/
+ENV/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Testing Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor & System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
