@@ -164,7 +164,7 @@ class ChatService:
             conversation_id=conversation_id, skip=skip, limit=limit
         )
 
-    # ─── AI Response Streaming ─────────────────────────────────────────────────
+    # ─── AI Response Streaming (Agentic Workflow) ──────────────────────────────
 
     async def stream_response(
         self,
@@ -173,21 +173,17 @@ class ChatService:
         user_message: str,
     ) -> AsyncGenerator[str, None]:
         """
-        Core AI response pipeline:
+        Agentic AI response pipeline via LangGraph workflow:
           1. Verify conversation ownership.
           2. Persist the user's message.
-          3. Build the LLM context from recent message history + system prompt.
-          4. Stream tokens from Groq LLM.
-          5. Collect and persist the full assistant response.
+          3. Run the LangGraph agent graph (guardrail → intent → sentiment →
+             crisis → memory → RAG → router → specialist → validation → generator).
+          4. Stream the final response token-by-token.
+          5. Persist the full assistant response.
           6. Update the conversation's updated_at timestamp.
 
-        Args:
-            conversation_id: Primary key of the conversation.
-            user_id: ID of the authenticated user.
-            user_message: The message content sent by the user.
-
         Yields:
-            Individual text tokens from the LLM stream.
+            Individual text tokens from the final response.
         """
         # 1 — Verify conversation ownership
         conversation = await self.get_conversation(conversation_id, user_id)
@@ -199,64 +195,68 @@ class ChatService:
             content=user_message,
         )
 
-        # 3 — Build context: system prompt + recent message history
-        recent_messages = await self._repo.get_recent_messages(
-            conversation_id=conversation_id, limit=20
-        )
-        groq_messages = [{"role": "system", "content": get_system_prompt()}]
-        for msg in recent_messages:
-            groq_messages.append({"role": msg.role, "content": msg.content})
-
-        # 4 — Stream tokens from Groq
         logger.info(
-            "Streaming AI response",
+            "Running agentic workflow",
             conversation_id=conversation_id,
             user_id=user_id,
-            context_length=len(groq_messages),
         )
 
-        full_response_parts: List[str] = []
-
+        # 3 — Run LangGraph agentic workflow
+        full_response = ""
         try:
-            stream = await self._groq.chat.completions.create(
-                model=settings.GROQ_MODEL,
-                messages=groq_messages,
-                stream=True,
-                temperature=0.7,
-                max_tokens=1024,
-            )
+            from app.agents.workflow import build_workflow
 
-            async for chunk in stream:
-                token = chunk.choices[0].delta.content
-                if token:
-                    full_response_parts.append(token)
-                    yield token
+            initial_state = {
+                "user_id": user_id,
+                "conversation_id": conversation_id,
+                "user_message": user_message,
+                "is_safe": True,
+                "violation_type": "none",
+                "intent": "general_question",
+                "sentiment": "Neutral",
+                "sentiment_confidence": 0.5,
+                "risk_level": "None",
+                "is_crisis": False,
+                "crisis_response": None,
+                "memory_context": "",
+                "rag_context": "",
+                "final_response": "",
+                "response_tokens": [],
+            }
+
+            workflow = build_workflow(self._db)
+            final_state = await workflow.ainvoke(initial_state)
+            full_response = final_state.get("final_response", "")
 
         except Exception as exc:
             logger.error(
-                "Groq streaming failed",
+                "Agentic workflow failed",
                 conversation_id=conversation_id,
                 error=str(exc),
             )
-            error_message = (
+            full_response = (
                 "I'm sorry, I'm having trouble connecting right now. "
                 "Please try again in a moment."
             )
-            yield error_message
-            full_response_parts = [error_message]
+
+        # 4 — Simulate token streaming from the final response
+        # Split by words to create a smooth streaming effect
+        words = full_response.split(" ")
+        for i, word in enumerate(words):
+            token = word if i == 0 else f" {word}"
+            yield token
 
         # 5 — Persist full assistant response
-        full_response = "".join(full_response_parts)
         await self._repo.create_message(
             conversation_id=conversation_id,
             role="assistant",
             content=full_response,
         )
 
-        # 6 — Touch the conversation's updated_at so it sorts correctly
+        # 6 — Touch the conversation's updated_at
         await self._repo.update_conversation(conversation)
         logger.info(
-            "AI response persisted",
+            "Agentic response persisted",
             conversation_id=conversation_id,
             response_length=len(full_response),
         )
