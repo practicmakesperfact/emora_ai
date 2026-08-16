@@ -149,13 +149,14 @@ class TestDocumentUpload:
 
     async def test_upload_unsupported_file_type_fails(self, async_client: AsyncClient):
         """Uploading a .exe file returns 400 (unsupported type)."""
+        from app.core.exceptions import AppException
         token = await register_and_login(
             async_client, "doc_upload_bad@example.com", "Admin"
         )
         with patch(
             "app.services.document_service.DocumentService.upload_document",
             new_callable=AsyncMock,
-            side_effect=Exception("Unsupported file type"),
+            side_effect=AppException(status_code=400, message="Unsupported file type"),
         ):
             # Real multipart upload simulation with invalid extension
             import io
@@ -165,8 +166,7 @@ class TestDocumentUpload:
                 files={"file": ("malware.exe", io.BytesIO(b"bad content"), "application/octet-stream")},
                 data={"title": "Malicious Upload"},
             )
-        # Should be 400 or 500 — either the service or the endpoint rejects it
-        assert resp.status_code in (400, 422, 500)
+        assert resp.status_code == 400
 
     async def test_upload_regular_user_forbidden(self, async_client: AsyncClient):
         """A regular User cannot upload documents (403)."""
@@ -193,10 +193,8 @@ class TestDocumentDelete:
         token = await register_and_login(
             async_client, "doc_delete@example.com", "Admin"
         )
-        with patch(
-            "app.services.rag_service.RAGService.delete_document_chunks",
-            return_value=None,
-        ):
+        with patch("app.api.v1.documents.RAGService") as MockRAG:
+            MockRAG.return_value = MagicMock()
             resp = await async_client.delete(
                 "/api/v1/documents/99999",
                 headers={"Authorization": f"Bearer {token}"},
@@ -237,10 +235,10 @@ class TestRAGSearch:
             )
         ]
 
-        with patch(
-            "app.services.rag_service.RAGService.search",
-            return_value=mock_results,
-        ):
+        with patch("app.api.v1.rag.RAGService") as MockRAG:
+            mock_inst = MagicMock()
+            mock_inst.search.return_value = mock_results
+            MockRAG.return_value = mock_inst
             resp = await async_client.get(
                 "/api/v1/rag/search?q=how+to+manage+anxiety",
                 headers={"Authorization": f"Bearer {token}"},
@@ -265,10 +263,10 @@ class TestRAGSearch:
         """If ChromaDB returns no results, response has empty results list."""
         token = await register_and_login(async_client, "rag_empty@example.com", "User")
 
-        with patch(
-            "app.services.rag_service.RAGService.search",
-            return_value=[],
-        ):
+        with patch("app.api.v1.rag.RAGService") as MockRAG:
+            mock_inst = MagicMock()
+            mock_inst.search.return_value = []
+            MockRAG.return_value = mock_inst
             resp = await async_client.get(
                 "/api/v1/rag/search?q=completely+obscure+query",
                 headers={"Authorization": f"Bearer {token}"},

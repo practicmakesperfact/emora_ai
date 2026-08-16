@@ -1,7 +1,7 @@
 # 🧠 Emora — AI-Driven Mental Health Support Chatbot
 
 > An intelligent, local-first mental health chatbot backend built with **FastAPI**, **LangGraph**, **Groq**, **ChromaDB**, and **PostgreSQL**.  
-> *Final Year Project — Clean Architecture, Agentic AI, Fully Offline.*
+
 
 ---
 

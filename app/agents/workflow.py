@@ -85,20 +85,60 @@ def build_workflow(db) -> StateGraph:
 
     graph = StateGraph(AgentState)
 
+    # Async node wrappers
+    async def run_guardrail(state):
+        return await guardrail_node(state, db)
+
+    async def run_intent(state):
+        return await intent_node(state, db)
+
+    async def run_sentiment(state):
+        return await sentiment_node(state, db)
+
+    async def run_crisis(state):
+        return await crisis_node(state, db)
+
+    async def run_memory(state):
+        return await memory_node(state, db)
+
+    async def run_rag_retrieval(state):
+        return await rag_retrieval_node(state)
+
+    async def run_router(state):
+        return await router_node(state)
+
+    async def run_cbt(state):
+        return await cbt_node(state, db)
+
+    async def run_journaling(state):
+        return await journaling_node(state, db)
+
+    async def run_mood_tracking(state):
+        return await mood_tracking_node(state, db)
+
+    async def run_conversation(state):
+        return await conversation_node(state, db)
+
+    async def run_response_validation(state):
+        return await response_validation_node(state, db)
+
+    async def run_response_generator(state):
+        return await response_generator_node(state)
+
     # Add nodes
-    graph.add_node("guardrail", lambda state: guardrail_node(state, db))
-    graph.add_node("intent", lambda state: intent_node(state, db))
-    graph.add_node("sentiment", lambda state: sentiment_node(state, db))
-    graph.add_node("crisis", lambda state: crisis_node(state, db))
-    graph.add_node("memory", lambda state: memory_node(state, db))
-    graph.add_node("rag_retrieval", lambda state: rag_retrieval_node(state))
-    graph.add_node("router", lambda state: router_node(state))
-    graph.add_node("cbt", lambda state: cbt_node(state, db))
-    graph.add_node("journaling", lambda state: journaling_node(state, db))
-    graph.add_node("mood_tracking", lambda state: mood_tracking_node(state, db))
-    graph.add_node("conversation", lambda state: conversation_node(state, db))
-    graph.add_node("response_validation", lambda state: response_validation_node(state, db))
-    graph.add_node("response_generator", lambda state: response_generator_node(state))
+    graph.add_node("guardrail", run_guardrail)
+    graph.add_node("intent", run_intent)
+    graph.add_node("sentiment", run_sentiment)
+    graph.add_node("crisis", run_crisis)
+    graph.add_node("memory", run_memory)
+    graph.add_node("rag_retrieval", run_rag_retrieval)
+    graph.add_node("router", run_router)
+    graph.add_node("cbt", run_cbt)
+    graph.add_node("journaling", run_journaling)
+    graph.add_node("mood_tracking", run_mood_tracking)
+    graph.add_node("conversation", run_conversation)
+    graph.add_node("response_validation", run_response_validation)
+    graph.add_node("response_generator", run_response_generator)
 
     # Set entry point
     graph.set_entry_point("guardrail")

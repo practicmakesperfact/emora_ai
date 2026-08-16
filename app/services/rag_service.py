@@ -58,7 +58,7 @@ class RAGService:
         Chunk content using RecursiveCharacterTextSplitter and upsert into ChromaDB.
         Returns the number of chunks indexed.
         """
-        from langchain.text_splitter import RecursiveCharacterTextSplitter
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
 
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,

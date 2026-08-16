@@ -301,32 +301,19 @@ class TestSearchConversations:
 
 class TestSendMessage:
 
-    @patch("app.services.chat_service.AsyncGroq")
+    @patch("app.services.chat_service.build_workflow")
     async def test_send_message_streams_response(
-        self, mock_groq_cls, async_client: AsyncClient
+        self, mock_build_workflow, async_client: AsyncClient
     ):
         """
         Sending a message returns a 200 streaming response.
-        Groq is mocked to return two tokens then stop.
+        The workflow is mocked to return 'Hello there!'.
         """
-        # Set up mock stream
-        mock_chunk_1 = MagicMock()
-        mock_chunk_1.choices = [MagicMock(delta=MagicMock(content="Hello"))]
-        mock_chunk_2 = MagicMock()
-        mock_chunk_2.choices = [MagicMock(delta=MagicMock(content=" there!"))]
-
-        async def fake_stream():
-            for chunk in [mock_chunk_1, mock_chunk_2]:
-                yield chunk
-
-        mock_completion = MagicMock()
-        mock_completion.__aiter__ = lambda self: fake_stream().__aiter__()
-
-        mock_groq_instance = AsyncMock()
-        mock_groq_instance.chat.completions.create = AsyncMock(
-            return_value=mock_completion
-        )
-        mock_groq_cls.return_value = mock_groq_instance
+        mock_workflow = AsyncMock()
+        mock_workflow.ainvoke.return_value = {
+            "final_response": "Hello there!",
+        }
+        mock_build_workflow.return_value = mock_workflow
 
         token = await register_and_login(async_client, "stream1@test.com", "password123")
         conv = await async_client.post(
@@ -340,7 +327,6 @@ class TestSendMessage:
             headers=auth_headers(token),
         )
         assert response.status_code == 200
-        # SSE content type
         assert "text/event-stream" in response.headers.get("content-type", "")
 
     async def test_send_message_to_nonexistent_conversation(
@@ -386,31 +372,29 @@ class TestConversationSummary:
         )
         assert response.status_code == 400
 
+    @patch("app.services.chat_service.build_workflow")
     @patch("app.services.chat_service.AsyncGroq")
     async def test_summarize_conversation_success(
-        self, mock_groq_cls, async_client: AsyncClient
+        self, mock_groq_cls, mock_build_workflow, async_client: AsyncClient
     ):
         """
         Summarizing a conversation with messages returns 200 with a summary.
-        The Groq call is mocked.
+        The Groq call and the LangGraph workflow are both mocked.
         """
-        # Mock Groq for both streaming message and summary
-        async def fake_stream():
-            chunk = MagicMock()
-            chunk.choices = [MagicMock(delta=MagicMock(content="I feel stressed today."))]
-            yield chunk
+        mock_workflow = AsyncMock()
+        mock_workflow.ainvoke.return_value = {
+            "final_response": "I feel stressed today.",
+        }
+        mock_build_workflow.return_value = mock_workflow
 
-        mock_stream_response = MagicMock()
-        mock_stream_response.__aiter__ = lambda self: fake_stream().__aiter__()
-
+        mock_choice = MagicMock()
+        mock_choice.message.content = "User expressed stress."
         mock_summary_response = MagicMock()
-        mock_summary_response.choices = [
-            MagicMock(message=MagicMock(content="User expressed stress."))
-        ]
+        mock_summary_response.choices = [mock_choice]
 
         mock_groq_instance = AsyncMock()
         mock_groq_instance.chat.completions.create = AsyncMock(
-            side_effect=[mock_stream_response, mock_summary_response]
+            return_value=mock_summary_response
         )
         mock_groq_cls.return_value = mock_groq_instance
 
@@ -434,4 +418,5 @@ class TestConversationSummary:
         assert response.status_code == 200
         data = response.json()
         assert "summary" in data
+        assert data["summary"] == "User expressed stress."
         assert data["conversation_id"] == conv_id
