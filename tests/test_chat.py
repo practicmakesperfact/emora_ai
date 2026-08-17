@@ -420,3 +420,16 @@ class TestConversationSummary:
         assert "summary" in data
         assert data["summary"] == "User expressed stress."
         assert data["conversation_id"] == conv_id
+
+        # Verify that the memory record is populated in the database
+        from app.models.memory import Memory
+        from sqlalchemy import select
+        async with TestSessionLocal() as session:
+            result = await session.execute(
+                select(Memory).where(Memory.conversation_id == conv_id)
+            )
+            memories = result.scalars().all()
+            assert len(memories) == 1
+            assert memories[0].memory_type == "summary"
+            assert memories[0].content == "User expressed stress."
+

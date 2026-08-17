@@ -317,12 +317,24 @@ class ChatService:
 
         # Persist the summary
         await self._repo.update_conversation(conversation, summary=summary)
+        
+        # Also store the summary in the memories table for long-term agent access
+        from app.models.memory import Memory
+        memory_record = Memory(
+            conversation_id=conversation_id,
+            memory_type="summary",
+            content=summary,
+        )
+        self._db.add(memory_record)
+        await self._db.flush()
+
         logger.info(
-            "Conversation summary saved",
+            "Conversation summary saved to conversation and memories tables",
             conversation_id=conversation_id,
             summary_length=len(summary),
         )
         return summary
+
 
     # ─── Search ────────────────────────────────────────────────────────────────
 
