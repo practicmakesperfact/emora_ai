@@ -26,6 +26,8 @@ class RAGSearchResult(BaseModel):
     title: str
     score: float
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 class RAGSearchResponse(BaseModel):
     query: str

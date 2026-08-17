@@ -7,16 +7,9 @@ import json
 from groq import AsyncGroq
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.prompts.intent_prompt import INTENT_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
-
-INTENT_SYSTEM_PROMPT = """Classify the user's intent from their message.
-Choose ONE label from: greeting, general_question, mood_logging, journal_entry,
-cbt_request, advice_request, crisis_situation, stress, anxiety, academic_pressure, relationship_issues.
-
-Respond ONLY with a valid JSON object:
-{"intent": "<label>", "confidence": <0.0-1.0>}
-"""
 
 
 async def intent_node(state: dict, db) -> dict:

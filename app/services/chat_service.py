@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.core.exceptions import AppException, NotFoundException, AuthorizationException
 from app.core.logging import get_logger
 from app.models.conversation import Conversation, Message
+from app.agents.workflow import build_workflow
 from app.prompts.summary_prompt import format_messages_for_summary, get_summary_prompt
 from app.repositories.conversation import ConversationRepository
 from app.schemas.chat import (
@@ -203,8 +204,6 @@ class ChatService:
         # 3 — Run LangGraph agentic workflow
         full_response = ""
         try:
-            from app.agents.workflow import build_workflow
-
             initial_state = {
                 "user_id": user_id,
                 "conversation_id": conversation_id,

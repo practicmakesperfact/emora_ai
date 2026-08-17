@@ -7,17 +7,9 @@ from groq import AsyncGroq
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.prompts.system_prompt import get_system_prompt
+from app.prompts.mood_prompt import MOOD_TRACKING_PROMPT
 
 logger = get_logger(__name__)
-
-MOOD_TRACKING_PROMPT = """You are a mood tracking assistant embedded in a mental health app.
-When a user mentions their mood or feelings, help them:
-1. Acknowledge what they're feeling with empathy.
-2. Gently encourage them to log their mood formally (score 1-10) in the app for trend tracking.
-3. Ask ONE follow-up question about what might be contributing to how they feel.
-
-Keep your response concise, warm, and non-clinical.
-"""
 
 
 async def mood_tracking_node(state: dict, db) -> dict:

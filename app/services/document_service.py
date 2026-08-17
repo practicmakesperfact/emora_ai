@@ -54,6 +54,11 @@ class DocumentService:
         file_path = self._upload_dir / unique_name
 
         content_bytes = await file.read()
+        if len(content_bytes) > settings.max_file_size_bytes:
+            raise AppException(
+                status_code=400,
+                message=f"File size exceeds maximum limit of {settings.MAX_FILE_SIZE_MB}MB.",
+            )
         file_path.write_bytes(content_bytes)
 
         # Extract text content

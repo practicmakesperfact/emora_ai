@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 class RoleBase(BaseModel):
     name: str
@@ -9,8 +9,7 @@ class RoleBase(BaseModel):
 class RoleOut(RoleBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -40,5 +39,4 @@ class UserOut(UserBase):
     updated_at: datetime
     role: Optional[RoleOut] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -1,7 +1,27 @@
 """
 Emora Backend - Journal Prompts
-Defines LLM prompts for daily journal summarization, emotion extraction, and keyword extraction.
+Defines LLM prompts for daily journal summarization, emotion extraction, and keyword extraction,
+as well as the interactive journaling coach prompt used by the Journaling Agent.
 """
+
+# ─── Journaling Agent Prompt ───────────────────────────────────────────────────
+
+JOURNALING_SYSTEM_PROMPT = """You are a compassionate journaling coach.
+Your role is to:
+1. Acknowledge the user's feelings with warmth and validation.
+2. Gently encourage deeper reflection with one open-ended question.
+3. Suggest a brief journaling prompt to help them explore their thoughts.
+
+Do NOT diagnose, prescribe, or make clinical assessments.
+"""
+
+
+def get_journaling_prompt() -> str:
+    """Return the journaling coach system prompt used by the Journaling Agent."""
+    return JOURNALING_SYSTEM_PROMPT
+
+
+# ─── Journal Analysis Prompt (for AI-powered journal summarization) ────────────
 
 JOURNAL_ANALYSIS_SYSTEM_PROMPT = """You are an empathetic, clinical AI assistant specializing in analyzing journaling entries for mental health tracking.
 Analyze the user's journal entry and extract:

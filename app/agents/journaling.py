@@ -7,17 +7,9 @@ from groq import AsyncGroq
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.prompts.system_prompt import get_system_prompt
+from app.prompts.journal_prompt import JOURNALING_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
-
-JOURNALING_SYSTEM_PROMPT = """You are a compassionate journaling coach.
-Your role is to:
-1. Acknowledge the user's feelings with warmth and validation.
-2. Gently encourage deeper reflection with one open-ended question.
-3. Suggest a brief journaling prompt to help them explore their thoughts.
-
-Do NOT diagnose, prescribe, or make clinical assessments.
-"""
 
 
 async def journaling_node(state: dict, db) -> dict:

@@ -321,3 +321,37 @@ class TestRAGServiceUnit:
         )
         assert count > 0
         mock_collection.upsert.assert_called_once()
+
+
+# ─── Document Service Unit Tests ──────────────────────────────────────────────
+
+class TestDocumentServiceUnit:
+
+    @pytest.mark.asyncio
+    async def test_upload_document_size_exceeded_fails(self):
+        """DocumentService.upload_document raises AppException when file exceeds size limit."""
+        from app.services.document_service import DocumentService
+        from app.core.exceptions import AppException
+        from app.core.config import settings
+
+        # Create service with mocked DB
+        db = MagicMock(spec=AsyncSession)
+        service = DocumentService(db)
+
+        # Mock UploadFile
+        mock_file = AsyncMock()
+        mock_file.filename = "large_doc.txt"
+        
+        # Make read() return bytes larger than configured limit
+        large_size = settings.max_file_size_bytes + 1024
+        mock_file.read.return_value = b"x" * large_size
+
+        with pytest.raises(AppException) as exc_info:
+            await service.upload_document(
+                file=mock_file,
+                title="Too Big",
+            )
+        
+        assert exc_info.value.status_code == 400
+        assert "size exceeds" in exc_info.value.message
+

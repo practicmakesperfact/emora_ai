@@ -8,22 +8,9 @@ import json
 from groq import AsyncGroq
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.prompts.validation_prompt import VALIDATION_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
-
-VALIDATION_SYSTEM_PROMPT = """You are a response safety validator for a mental health chatbot.
-Review the AI assistant's response and check if it:
-1. Prescribes or recommends specific medications or dosages.
-2. Makes clinical diagnoses.
-3. Contains factually incorrect mental health information.
-4. Makes unrealistic promises about outcomes.
-
-If any violation is found, rewrite the response to remove the problematic content while keeping the supportive tone.
-If the response is safe, return it unchanged.
-
-Respond ONLY with valid JSON:
-{"is_valid": true/false, "response": "<final safe response>"}
-"""
 
 
 async def response_validation_node(state: dict, db) -> dict:

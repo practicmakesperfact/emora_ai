@@ -9,16 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.sentiment import SentimentLog
+from app.prompts.sentiment_prompt import SENTIMENT_SYSTEM_PROMPT
 
 logger = get_logger(__name__)
-
-SENTIMENT_SYSTEM_PROMPT = """Detect the primary emotion in the user's message.
-Choose ONE label from: Happiness, Sadness, Anxiety, Stress, Anger, Fear, Burnout, Loneliness, Neutral.
-Also provide a confidence score between 0.0 and 1.0.
-
-Respond ONLY with a valid JSON object:
-{"sentiment": "<label>", "confidence": <0.0-1.0>}
-"""
 
 
 async def sentiment_node(state: dict, db: AsyncSession) -> dict:

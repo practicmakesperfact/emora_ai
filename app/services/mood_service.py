@@ -7,7 +7,7 @@ Responsibilities:
   - Enforce ownership validation on deletion.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -76,8 +76,8 @@ class MoodService:
             return await self._repo.get_by_user(user_id)
 
         days = 7 if period == "weekly" else 30
-        start_date = datetime.utcnow() - timedelta(days=days)
-        end_date = datetime.utcnow()
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        end_date = datetime.now(timezone.utc)
 
         # Eagerly retrieve logs in range
         logs = await self._repo.get_logs_in_date_range(user_id, start_date, end_date)
@@ -98,8 +98,8 @@ class MoodService:
             MoodTrendsResponse containing statistics and daily averages.
         """
         days = 7 if period == "weekly" else 30
-        start_date = datetime.utcnow() - timedelta(days=days)
-        end_date = datetime.utcnow()
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        end_date = datetime.now(timezone.utc)
 
         logs = await self._repo.get_logs_in_date_range(user_id, start_date, end_date)
 
