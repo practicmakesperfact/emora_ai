@@ -12,8 +12,8 @@ class MoodLog(Base):
     score: Mapped[int] = mapped_column(Integer, nullable=False) # 1-10 (1=Very bad, 10=Excellent)
     mood_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     emotions: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True) # ["anxious", "sad", "stressed"]
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="mood_logs")

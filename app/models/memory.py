@@ -11,8 +11,8 @@ class Memory(Base):
     conversation_id: Mapped[int] = mapped_column(ForeignKey("conversations.id"), nullable=False)
     memory_type: Mapped[str] = mapped_column(String(50), nullable=False) # "short_term", "long_term", "summary"
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
 
     # Relationships
     conversation: Mapped["Conversation"] = relationship("Conversation", back_populates="memories")

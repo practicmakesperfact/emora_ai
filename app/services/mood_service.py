@@ -76,8 +76,8 @@ class MoodService:
             return await self._repo.get_by_user(user_id)
 
         days = 7 if period == "weekly" else 30
-        start_date = datetime.now(timezone.utc) - timedelta(days=days)
-        end_date = datetime.now(timezone.utc)
+        start_date = (datetime.now(timezone.utc) - timedelta(days=days)).replace(tzinfo=None)
+        end_date = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Eagerly retrieve logs in range
         logs = await self._repo.get_logs_in_date_range(user_id, start_date, end_date)
@@ -98,8 +98,8 @@ class MoodService:
             MoodTrendsResponse containing statistics and daily averages.
         """
         days = 7 if period == "weekly" else 30
-        start_date = datetime.now(timezone.utc) - timedelta(days=days)
-        end_date = datetime.now(timezone.utc)
+        start_date = (datetime.now(timezone.utc) - timedelta(days=days)).replace(tzinfo=None)
+        end_date = datetime.now(timezone.utc).replace(tzinfo=None)
 
         logs = await self._repo.get_logs_in_date_range(user_id, start_date, end_date)
 

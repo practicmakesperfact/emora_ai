@@ -160,7 +160,7 @@ class TestMoodHistoryAndTrends:
             # Log 2: yesterday, score=6, emotions=["anxious", "calm"]
             # Log 3: 15 days ago, score=5, emotions=["sad"]
             # Log 4: 45 days ago, score=9 (should not appear in weekly/monthly)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             log1 = MoodLog(user_id=3, score=8, mood_notes="Today", emotions=["happy", "calm"], created_at=now)
             log2 = MoodLog(user_id=3, score=6, mood_notes="Yesterday", emotions=["anxious", "calm"], created_at=now - timedelta(days=1))
             log3 = MoodLog(user_id=3, score=5, mood_notes="Two weeks ago", emotions=["sad"], created_at=now - timedelta(days=15))

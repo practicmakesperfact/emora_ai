@@ -26,8 +26,8 @@ class User(Base):
     mental_wellness_goal: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     emergency_contact: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     role_id: Mapped[int] = mapped_column(ForeignKey("roles.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False)
 
     # Relationships
     role: Mapped["Role"] = relationship("Role", back_populates="users")
