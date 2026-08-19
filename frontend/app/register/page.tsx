@@ -32,8 +32,8 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<any>({
+    resolver: zodResolver(registerSchema) as any,
     defaultValues: {
       role_name: 'User',
       preferred_language: 'en',
@@ -89,7 +89,7 @@ export default function RegisterPage() {
                 type="text"
                 autoComplete="name"
                 leftIcon={<User className="w-4 h-4" />}
-                error={errors.full_name?.message}
+                error={errors.full_name?.message as string | undefined}
                 required
                 {...register('full_name')}
               />
@@ -99,7 +99,7 @@ export default function RegisterPage() {
                 type="email"
                 autoComplete="email"
                 leftIcon={<Mail className="w-4 h-4" />}
-                error={errors.email?.message}
+                error={errors.email?.message as string | undefined}
                 required
                 {...register('email')}
               />
@@ -109,7 +109,7 @@ export default function RegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 leftIcon={<Lock className="w-4 h-4" />}
-                error={errors.password?.message}
+                error={errors.password?.message as string | undefined}
                 hint="At least 6 characters"
                 required
                 {...register('password')}
@@ -120,7 +120,7 @@ export default function RegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 leftIcon={<Lock className="w-4 h-4" />}
-                error={errors.confirmPassword?.message}
+                error={errors.confirmPassword?.message as string | undefined}
                 required
                 {...register('confirmPassword')}
               />

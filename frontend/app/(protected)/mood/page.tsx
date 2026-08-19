@@ -217,8 +217,8 @@ export default function MoodPage() {
                         border: '1px solid #e2e8f0',
                         fontSize: '12px',
                       }}
-                      formatter={(value: number) => [
-                        `${value} — ${getMoodLabel(Math.round(value))}`,
+                      formatter={(value: any) => [
+                        `${value} — ${getMoodLabel(Math.round(Number(value)))}`,
                         'Score',
                       ]}
                     />
