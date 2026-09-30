@@ -44,7 +44,7 @@ export default function ProfilePage() {
   const updateMutation = useMutation({
     mutationFn: (data: ProfileFormData) => {
       // Filter out empty password or wellness goals if unmodified
-      const payload: Record<string, any> = { ...data };
+      const payload: Partial<ProfileFormData> = { ...data };
       if (!payload.password) delete payload.password;
       return usersApi.updateMe(payload);
     },

@@ -58,8 +58,8 @@ export default function HomePage() {
 
         <p className="text-lg text-slate-600 max-w-xl leading-relaxed mb-8">
           Emora is an AI-powered mental health support assistant. Whether
-          you're feeling anxious, overwhelmed, or just need someone to talk
-          to — we're here, without judgment.
+          you&apos;re feeling anxious, overwhelmed, or just need someone to talk
+          to — we&apos;re here, without judgment.
         </p>
 
         {/* CTA */}

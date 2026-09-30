@@ -15,7 +15,7 @@ import { loginSchema, type LoginFormData } from '@/schemas';
 import { Input } from '@/components/common/Input';
 import { Button } from '@/components/common/Button';
 import { InlineError } from '@/components/common/Feedback';
-import { getErrorMessage } from '@/utils';
+import { getApiErrorMessage } from '@/lib/api/client';
 import { ROUTES, APP_DISCLAIMER } from '@/constants';
 
 export default function LoginPage() {
@@ -42,7 +42,7 @@ export default function LoginPage() {
       await login(data);
       router.push(ROUTES.DASHBOARD);
     } catch (err) {
-      setApiError(getErrorMessage(err));
+      setApiError(getApiErrorMessage(err));
     }
   }
 

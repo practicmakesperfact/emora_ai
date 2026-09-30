@@ -180,6 +180,8 @@ export interface IncidentResolve {
   counselor_notes?: string;
 }
 
+export type DocumentStatus = 'pending' | 'processed' | 'failed';
+
 export interface KnowledgeDocument {
   id: number;
   title: string;
@@ -187,14 +189,18 @@ export interface KnowledgeDocument {
   source?: string;
   upload_date: string;
   file_name: string;
+  status: DocumentStatus;
 }
 
 export interface RAGSearchResult {
   content: string;
-  source: string;
-  title: string;
-  score: number;
+  source?: string;
+  title?: string;
+  score?: number;
 }
+
+/** Convenience alias */
+export type RAGResult = RAGSearchResult;
 
 export interface RAGSearchResponse {
   query: string;

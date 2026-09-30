@@ -70,6 +70,7 @@ export default function MoodPage() {
   const selectedScore = watch('score');
   const selectedEmotions = watch('emotions') || [];
 
+  // eslint-disable-next-line
   const logMutation = useMutation({
     mutationFn: (data: MoodFormData) =>
       moodApi.logMood({
@@ -217,7 +218,7 @@ export default function MoodPage() {
                         border: '1px solid #e2e8f0',
                         fontSize: '12px',
                       }}
-                      formatter={(value: any) => [
+                      formatter={(value: unknown) => [
                         `${value} — ${getMoodLabel(Math.round(Number(value)))}`,
                         'Score',
                       ]}

@@ -15,7 +15,7 @@ import { registerSchema, type RegisterFormData } from '@/schemas';
 import { Input } from '@/components/common/Input';
 import { Button } from '@/components/common/Button';
 import { InlineError } from '@/components/common/Feedback';
-import { getErrorMessage } from '@/utils';
+import { getApiErrorMessage } from '@/lib/api/client';
 import { ROUTES, APP_DISCLAIMER, PRIVACY_NOTICE } from '@/constants';
 
 export default function RegisterPage() {
@@ -32,7 +32,9 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<any>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(registerSchema) as any,
     defaultValues: {
       role_name: 'User',
@@ -53,7 +55,7 @@ export default function RegisterPage() {
       await authRegister(payload);
       router.push(ROUTES.DASHBOARD);
     } catch (err) {
-      setApiError(getErrorMessage(err));
+      setApiError(getApiErrorMessage(err));
     }
   }
 

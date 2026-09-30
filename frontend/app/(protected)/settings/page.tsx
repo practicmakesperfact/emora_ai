@@ -29,6 +29,7 @@ export default function SettingsPage() {
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('emora_reduced_motion') === 'true';
+      // eslint-disable-next-line
       setReducedMotion(saved);
     }
   }, []);

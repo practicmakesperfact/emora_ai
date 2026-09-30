@@ -29,6 +29,7 @@ export const ROUTES = {
   COUNSELOR_INCIDENTS: '/counselor/incidents',
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_DOCUMENTS: '/admin/documents',
+  ADMIN_KNOWLEDGE_BASE: '/admin/knowledge-base',
   ADMIN_USERS: '/admin/users',
 } as const;
 

@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Heart,
   Info,
+  Database,
 } from 'lucide-react';
 
 interface NavItem {
@@ -80,8 +81,14 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: ROUTES.ADMIN_DOCUMENTS,
-    label: 'Knowledge Base',
+    label: 'Upload Documents',
     icon: <FileText className="w-4 h-4" />,
+    roles: [ROLES.ADMIN],
+  },
+  {
+    href: ROUTES.ADMIN_KNOWLEDGE_BASE,
+    label: 'Knowledge Base',
+    icon: <Database className="w-4 h-4" />,
     roles: [ROLES.ADMIN],
   },
   {

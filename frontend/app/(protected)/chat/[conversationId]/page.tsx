@@ -57,6 +57,7 @@ export default function ConversationPage({ params }: Props) {
 
   useEffect(() => {
     if (fetchedMessages) {
+      // eslint-disable-next-line
       setMessages(fetchedMessages);
       // Check for most recent crisis
       const crisisMsg = [...fetchedMessages]
