@@ -237,27 +237,27 @@ class ChatService:
                 "Please try again in a moment."
             )
 
-        # 4 — Simulate token streaming from the final response
-        # Split by words to create a smooth streaming effect
-        words = full_response.split(" ")
-        for i, word in enumerate(words):
-            token = word if i == 0 else f" {word}"
-            yield token
-
-        # 5 — Persist full assistant response
+        # 4 — Persist full assistant response immediately
         await self._repo.create_message(
             conversation_id=conversation_id,
             role="assistant",
             content=full_response,
         )
 
-        # 6 — Touch the conversation's updated_at
+        # 5 — Touch the conversation's updated_at
         await self._repo.update_conversation(conversation)
         logger.info(
             "Agentic response persisted",
             conversation_id=conversation_id,
             response_length=len(full_response),
         )
+
+        # 6 — Simulate token streaming from the final response
+        # Split by words to create a smooth streaming effect
+        words = full_response.split(" ")
+        for i, word in enumerate(words):
+            token = word if i == 0 else f" {word}"
+            yield token
 
     # ─── Conversation Summary ──────────────────────────────────────────────────
 

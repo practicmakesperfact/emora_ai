@@ -88,16 +88,30 @@ export function useSSEStream({
           buffer = lines.pop() || '';
 
           for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed.startsWith('data: ')) {
-              const data = trimmed.slice(6);
-              if (data === '[DONE]') {
+            const trimmedLine = line.trimStart();
+            if (trimmedLine.startsWith('data: ')) {
+              const rawData = trimmedLine.slice(6);
+              if (rawData === '[DONE]') {
                 onDone();
                 setIsStreaming(false);
                 return;
               }
-              if (data) {
-                onToken(data);
+              try {
+                const parsed = JSON.parse(rawData);
+                if (parsed.done) {
+                  onDone();
+                  setIsStreaming(false);
+                  return;
+                }
+                if (typeof parsed.token === 'string') {
+                  onToken(parsed.token);
+                  continue;
+                }
+              } catch {
+                // Fallback for raw text token
+                if (rawData) {
+                  onToken(rawData);
+                }
               }
             }
           }

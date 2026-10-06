@@ -5,9 +5,13 @@ Implements a local Retrieval-Augmented Generation pipeline using:
   - Ollama nomic-embed-text for embeddings (local, offline)
   - ChromaDB as the vector store
   - Metadata filtering and source citations
+
+NOTE: Ollama must be running locally (`ollama serve`) for RAG to work.
+If Ollama is unavailable, the service degrades gracefully — chat still works,
+but without knowledge-base context.
 """
 
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 
 from app.core.config import settings
@@ -38,12 +42,22 @@ class RAGService:
     """Service for indexing documents into ChromaDB and running similarity searches."""
 
     def __init__(self) -> None:
-        self._client = _get_chroma_client()
-        self._ef = _get_embedding_function()
-        self._collection = self._client.get_or_create_collection(
-            name=CHROMA_COLLECTION_NAME,
-            embedding_function=self._ef,
-        )
+        self._available = False
+        self._collection = None
+        try:
+            self._client = _get_chroma_client()
+            self._ef = _get_embedding_function()
+            self._collection = self._client.get_or_create_collection(
+                name=CHROMA_COLLECTION_NAME,
+                embedding_function=self._ef,
+            )
+            self._available = True
+        except Exception as e:
+            logger.warning(
+                "RAG service unavailable — Ollama may not be running. "
+                "Chat will work without knowledge-base context.",
+                error=str(e),
+            )
 
     def index_document(
         self,
@@ -58,6 +72,10 @@ class RAGService:
         Chunk content using RecursiveCharacterTextSplitter and upsert into ChromaDB.
         Returns the number of chunks indexed.
         """
+        if not self._available or self._collection is None:
+            logger.warning("RAG service unavailable — skipping document indexing", doc_id=document_id)
+            return 0
+
         from langchain_text_splitters import RecursiveCharacterTextSplitter
 
         splitter = RecursiveCharacterTextSplitter(
@@ -99,6 +117,9 @@ class RAGService:
         Perform a similarity search in ChromaDB.
         Returns a list of RAGSearchResult with content, source, title, and score.
         """
+        if not self._available or self._collection is None:
+            return []
+
         try:
             results = self._collection.query(
                 query_texts=[query],
@@ -135,6 +156,10 @@ class RAGService:
 
     def delete_document_chunks(self, document_id: int) -> None:
         """Remove all ChromaDB chunks associated with a document_id."""
+        if not self._available or self._collection is None:
+            logger.warning("RAG service unavailable — skipping chunk deletion", doc_id=document_id)
+            return
+
         try:
             results = self._collection.get(
                 where={"document_id": str(document_id)},

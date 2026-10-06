@@ -194,15 +194,51 @@ async def send_message(
     await service.get_conversation(conversation_id=conversation_id, user_id=current_user.id)
 
     async def token_generator():
-        """Async generator that yields SSE-formatted tokens from the chat service."""
-        async for token in service.stream_response(
+        """
+        Async generator that yields SSE-formatted tokens from the chat service.
+        Sends periodic SSE comment heartbeats while the pipeline is running so
+        the browser doesn't close the connection during the silent 5-8s processing window.
+        """
+        import asyncio
+        import json
+
+        # Run the agentic pipeline in the background, collect tokens as they come
+        stream = service.stream_response(
             conversation_id=conversation_id,
             user_id=current_user.id,
             user_message=payload.content,
-        ):
-            # Format as SSE: "data: <token>\n\n"
-            yield f"data: {token}\n\n"
-        # Signal stream end
+        )
+
+        # Use an async queue to bridge the pipeline and the SSE output
+        queue: asyncio.Queue = asyncio.Queue()
+        SENTINEL = object()
+
+        async def producer():
+            try:
+                async for token in stream:
+                    await queue.put(token)
+            finally:
+                await queue.put(SENTINEL)
+
+        producer_task = asyncio.create_task(producer())
+
+        try:
+            while True:
+                try:
+                    # Wait up to 1 second for the next token
+                    item = await asyncio.wait_for(queue.get(), timeout=1.0)
+                    if item is SENTINEL:
+                        break
+                    token_json = json.dumps({"token": item})
+                    yield f"data: {token_json}\n\n"
+                except asyncio.TimeoutError:
+                    # Send a keep-alive SSE comment to prevent connection timeout
+                    yield ": heartbeat\n\n"
+        finally:
+            producer_task.cancel()
+
+        # Signal stream end (both JSON and legacy string for total compatibility)
+        yield 'data: {"done": true}\n\n'
         yield "data: [DONE]\n\n"
 
     logger.info(

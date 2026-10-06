@@ -72,14 +72,37 @@ export default function ConversationPage({ params }: Props) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamedContent]);
 
+  const streamedContentRef = useRef('');
+
   // SSE Stream
   const handleToken = useCallback((token: string) => {
-    setStreamedContent((prev) => prev + token);
+    setStreamedContent((prev) => {
+      const next = prev + token;
+      streamedContentRef.current = next;
+      return next;
+    });
   }, []);
 
   const handleDone = useCallback(() => {
+    const finalContent = streamedContentRef.current;
+    if (finalContent) {
+      setMessages((prevMsgs) => [
+        ...prevMsgs,
+        {
+          id: Date.now() + 1,
+          conversation_id: conversationId,
+          role: 'assistant',
+          content: finalContent,
+          is_crisis_triggered: false,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    }
+    
     setStreamedContent('');
-    // Refresh messages to get the saved AI response
+    streamedContentRef.current = '';
+
+    // Refresh messages to sync with saved backend AI response
     queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
     textareaRef.current?.focus();
