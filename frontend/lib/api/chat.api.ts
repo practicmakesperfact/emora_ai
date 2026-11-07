@@ -11,6 +11,7 @@ import type {
   ConversationSearchResponse,
   Message,
   PaginationParams,
+  SessionStatus,
 } from '@/types';
 
 export const chatApi = {
@@ -81,5 +82,13 @@ export const chatApi = {
     }
 
     return response;
+  },
+
+  /** GET /chat/{id}/session-status — Check session usage vs limits */
+  getSessionStatus: async (conversationId: number): Promise<SessionStatus> => {
+    const res = await apiClient.get<SessionStatus>(
+      `/chat/${conversationId}/session-status`
+    );
+    return res.data;
   },
 };

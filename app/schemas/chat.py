@@ -52,3 +52,17 @@ class SearchResult(BaseModel):
 class ConversationSearchResponse(BaseModel):
     query: str
     results: List[SearchResult]
+
+
+class SessionStatusOut(BaseModel):
+    """Returned by GET /chat/{id}/session-status to let the frontend show limit warnings."""
+    conversation_id: int
+    user_message_count: int
+    max_messages: int
+    session_age_minutes: int
+    max_duration_minutes: int
+    messages_remaining: int
+    minutes_remaining: int
+    is_message_limit_reached: bool
+    is_duration_limit_reached: bool
+    is_limit_reached: bool

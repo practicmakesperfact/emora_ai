@@ -8,6 +8,7 @@ Responsibilities:
   - Stream AI responses from Groq LLM.
   - Generate conversation summaries via Groq.
   - Search messages across user conversations.
+  - Enforce session-length limits (message count + duration).
 
 This service sits between the API layer and the repository layer, following
 the Service Layer Pattern. It has no direct SQL queries — those belong in
@@ -15,12 +16,18 @@ ConversationRepository.
 """
 
 from typing import AsyncGenerator, List, Optional, Sequence
+from datetime import datetime, timezone
 
 from groq import AsyncGroq
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.exceptions import AppException, NotFoundException, AuthorizationException
+from app.core.exceptions import (
+    AppException,
+    NotFoundException,
+    AuthorizationException,
+    SessionLimitException,
+)
 from app.core.logging import get_logger
 from app.models.conversation import Conversation, Message
 from app.agents.workflow import build_workflow
@@ -29,6 +36,7 @@ from app.repositories.conversation import ConversationRepository
 from app.schemas.chat import (
     ConversationCreate,
     SearchResult,
+    SessionStatusOut,
 )
 
 logger = get_logger(__name__)
@@ -102,7 +110,7 @@ class ChatService:
 
         Raises:
             NotFoundException: If the conversation does not exist.
-            ForbiddenException: If the conversation belongs to another user.
+            AuthorizationException: If the conversation belongs to another user.
 
         Returns:
             The Conversation ORM instance.
@@ -126,7 +134,7 @@ class ChatService:
 
         Raises:
             NotFoundException: If the conversation does not exist.
-            ForbiddenException: If the conversation belongs to another user.
+            AuthorizationException: If the conversation belongs to another user.
         """
         conversation = await self.get_conversation(conversation_id, user_id)
         await self._repo.delete_conversation(conversation.id)
@@ -175,12 +183,13 @@ class ChatService:
         """
         Agentic AI response pipeline via LangGraph workflow:
           1. Verify conversation ownership.
-          2. Persist the user's message.
-          3. Run the LangGraph agent graph (guardrail → intent → sentiment →
+          2. Enforce session limits (message count + duration).
+          3. Persist the user's message.
+          4. Run the LangGraph agent graph (guardrail → intent → sentiment →
              crisis → memory → RAG → router → specialist → validation → generator).
-          4. Stream the final response token-by-token.
-          5. Persist the full assistant response.
-          6. Update the conversation's updated_at timestamp.
+          5. Stream the final response token-by-token.
+          6. Persist the full assistant response.
+          7. Update the conversation's updated_at timestamp.
 
         Yields:
             Individual text tokens from the final response.
@@ -188,7 +197,10 @@ class ChatService:
         # 1 — Verify conversation ownership
         conversation = await self.get_conversation(conversation_id, user_id)
 
-        # 2 — Persist user message
+        # 2 — Enforce session limits (message count + duration)
+        await self._enforce_session_limits(conversation)
+
+        # 3 — Persist user message
         await self._repo.create_message(
             conversation_id=conversation_id,
             role="user",
@@ -201,7 +213,7 @@ class ChatService:
             user_id=user_id,
         )
 
-        # 3 — Run LangGraph agentic workflow
+        # 4 — Run LangGraph agentic workflow
         full_response = ""
         try:
             initial_state = {
@@ -237,14 +249,14 @@ class ChatService:
                 "Please try again in a moment."
             )
 
-        # 4 — Persist full assistant response immediately
+        # 5 — Persist full assistant response immediately
         await self._repo.create_message(
             conversation_id=conversation_id,
             role="assistant",
             content=full_response,
         )
 
-        # 5 — Touch the conversation's updated_at
+        # 6 — Touch the conversation's updated_at
         await self._repo.update_conversation(conversation)
         logger.info(
             "Agentic response persisted",
@@ -252,12 +264,103 @@ class ChatService:
             response_length=len(full_response),
         )
 
-        # 6 — Simulate token streaming from the final response
+        # 7 — Simulate token streaming from the final response
         # Split by words to create a smooth streaming effect
         words = full_response.split(" ")
         for i, word in enumerate(words):
             token = word if i == 0 else f" {word}"
             yield token
+
+    # ─── Session Limit Enforcement ─────────────────────────────────────────────
+
+    async def _enforce_session_limits(self, conversation: Conversation) -> None:
+        """
+        Raise SessionLimitException if the conversation has exceeded either:
+          - SESSION_MAX_MESSAGES  user messages, OR
+          - SESSION_MAX_DURATION_MINUTES minutes since conversation was created.
+
+        This prevents unhealthy emotional over-dependence on the AI (req.md §Deceptive Empathy).
+        """
+        max_msgs = settings.SESSION_MAX_MESSAGES
+        max_minutes = settings.SESSION_MAX_DURATION_MINUTES
+
+        # Check message count
+        user_msg_count = await self._repo.count_user_messages_in_conversation(
+            conversation.id
+        )
+        if user_msg_count >= max_msgs:
+            logger.warning(
+                "Session message limit reached",
+                conversation_id=conversation.id,
+                user_msg_count=user_msg_count,
+                limit=max_msgs,
+            )
+            raise SessionLimitException(
+                message=(
+                    f"This conversation has reached the {max_msgs}-message limit. "
+                    "Please start a new conversation to continue. "
+                    "Taking a break helps maintain a healthy balance."
+                ),
+                limit_type="message_count",
+                details={"count": user_msg_count, "limit": max_msgs},
+            )
+
+        # Check session duration
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        session_age_minutes = (now_utc - conversation.created_at).total_seconds() / 60
+        if session_age_minutes >= max_minutes:
+            logger.warning(
+                "Session duration limit reached",
+                conversation_id=conversation.id,
+                age_minutes=round(session_age_minutes),
+                limit=max_minutes,
+            )
+            raise SessionLimitException(
+                message=(
+                    f"This conversation has been active for over {max_minutes} minutes. "
+                    "Please start a new conversation. "
+                    "Regular breaks are part of healthy support use."
+                ),
+                limit_type="duration",
+                details={
+                    "age_minutes": round(session_age_minutes),
+                    "limit_minutes": max_minutes,
+                },
+            )
+
+    # ─── Session Status ─────────────────────────────────────────────────────────
+
+    async def get_session_status(
+        self, conversation_id: int, user_id: int
+    ) -> SessionStatusOut:
+        """
+        Return current session usage vs configured limits.
+        Called by GET /chat/{id}/session-status so the frontend can
+        show a warning banner before the limit is hit.
+        """
+        conversation = await self.get_conversation(conversation_id, user_id)
+        max_msgs = settings.SESSION_MAX_MESSAGES
+        max_minutes = settings.SESSION_MAX_DURATION_MINUTES
+
+        user_msg_count = await self._repo.count_user_messages_in_conversation(conversation_id)
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+        age_minutes = int((now_utc - conversation.created_at).total_seconds() / 60)
+
+        msgs_remaining = max(0, max_msgs - user_msg_count)
+        mins_remaining = max(0, max_minutes - age_minutes)
+
+        return SessionStatusOut(
+            conversation_id=conversation_id,
+            user_message_count=user_msg_count,
+            max_messages=max_msgs,
+            session_age_minutes=age_minutes,
+            max_duration_minutes=max_minutes,
+            messages_remaining=msgs_remaining,
+            minutes_remaining=mins_remaining,
+            is_message_limit_reached=user_msg_count >= max_msgs,
+            is_duration_limit_reached=age_minutes >= max_minutes,
+            is_limit_reached=user_msg_count >= max_msgs or age_minutes >= max_minutes,
+        )
 
     # ─── Conversation Summary ──────────────────────────────────────────────────
 
@@ -317,7 +420,7 @@ class ChatService:
 
         # Persist the summary
         await self._repo.update_conversation(conversation, summary=summary)
-        
+
         # Also store the summary in the memories table for long-term agent access
         from app.models.memory import Memory
         memory_record = Memory(
@@ -334,7 +437,6 @@ class ChatService:
             summary_length=len(summary),
         )
         return summary
-
 
     # ─── Search ────────────────────────────────────────────────────────────────
 

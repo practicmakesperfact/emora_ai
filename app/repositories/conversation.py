@@ -153,6 +153,23 @@ class ConversationRepository:
         messages.reverse()
         return messages
 
+    # ─── Session Limiting ──────────────────────────────────────────────────────
+
+    async def count_user_messages_in_conversation(
+        self, conversation_id: int
+    ) -> int:
+        """
+        Count how many 'user' role messages exist in a conversation.
+        Used to enforce SESSION_MAX_MESSAGES limit.
+        """
+        result = await self.db.execute(
+            select(func.count()).where(
+                Message.conversation_id == conversation_id,
+                Message.role == "user",
+            )
+        )
+        return result.scalar_one()
+
     # ─── Search ───────────────────────────────────────────────────────────────
 
     async def search_messages(

@@ -25,10 +25,11 @@ import { chatApi } from '@/lib/api/chat.api';
 import { Button } from '@/components/common/Button';
 import { LoadingPage, Skeleton } from '@/components/common/Feedback';
 import { CrisisAlert } from '@/components/crisis/CrisisAlert';
+import { SessionLimitBanner } from '@/components/chat/SessionLimitBanner';
 import { useSSEStream } from '@/hooks/useSSEStream';
 import { formatTime, cn, truncate } from '@/utils';
 import { ROUTES, CHAT_PLACEHOLDER, PRIVACY_NOTICE } from '@/constants';
-import type { Message } from '@/types';
+import type { Message, SessionStatus } from '@/types';
 
 interface Props {
   params: Promise<{ conversationId: string }>;
@@ -45,6 +46,9 @@ export default function ConversationPage({ params }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [latestCrisis, setLatestCrisis] = useState<Message | null>(null);
 
+  // ── Session limit state ────────────────────────────────────────────────────
+  const [sessionLimitMessage, setSessionLimitMessage] = useState<string | null>(null);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -55,11 +59,19 @@ export default function ConversationPage({ params }: Props) {
     enabled: !isNaN(conversationId),
   });
 
+  // Poll session status every 30 s (also refetched after each message send)
+  const { data: sessionStatus } = useQuery<SessionStatus>({
+    queryKey: ['session-status', conversationId],
+    queryFn: () => chatApi.getSessionStatus(conversationId),
+    enabled: !isNaN(conversationId),
+    refetchInterval: 30_000,
+    // Don't throw — silently ignore if the endpoint fails
+    retry: false,
+  });
+
   useEffect(() => {
     if (fetchedMessages) {
-      // eslint-disable-next-line
       setMessages(fetchedMessages);
-      // Check for most recent crisis
       const crisisMsg = [...fetchedMessages]
         .reverse()
         .find((m) => m.is_crisis_triggered);
@@ -74,7 +86,7 @@ export default function ConversationPage({ params }: Props) {
 
   const streamedContentRef = useRef('');
 
-  // SSE Stream
+  // SSE Stream handlers
   const handleToken = useCallback((token: string) => {
     setStreamedContent((prev) => {
       const next = prev + token;
@@ -98,12 +110,13 @@ export default function ConversationPage({ params }: Props) {
         },
       ]);
     }
-    
+
     setStreamedContent('');
     streamedContentRef.current = '';
 
-    // Refresh messages to sync with saved backend AI response
+    // Refresh messages and session status after each exchange
     queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
+    queryClient.invalidateQueries({ queryKey: ['session-status', conversationId] });
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
     textareaRef.current?.focus();
   }, [conversationId, queryClient]);
@@ -113,15 +126,28 @@ export default function ConversationPage({ params }: Props) {
     setStreamedContent('');
   }, []);
 
+  // ── Session limit handler (429) ────────────────────────────────────────────
+  const handleSessionLimit = useCallback((msg: string) => {
+    setSessionLimitMessage(msg);
+    setStreamedContent('');
+    // Refresh session status immediately so the banner shows accurate numbers
+    queryClient.invalidateQueries({ queryKey: ['session-status', conversationId] });
+  }, [conversationId, queryClient]);
+
   const { isStreaming, startStream, cancelStream } = useSSEStream({
     onToken: handleToken,
     onDone: handleDone,
     onError: handleStreamError,
+    onSessionLimit: handleSessionLimit,
   });
+
+  // Determine if input should be blocked
+  const isSessionBlocked =
+    Boolean(sessionLimitMessage) || Boolean(sessionStatus?.is_limit_reached);
 
   async function sendMessage() {
     const content = input.trim();
-    if (!content || isStreaming) return;
+    if (!content || isStreaming || isSessionBlocked) return;
 
     setInput('');
     setStreamError(null);
@@ -184,12 +210,37 @@ export default function ConversationPage({ params }: Props) {
             <p className="text-xs text-slate-400">AI Support Assistant</p>
           </div>
         </div>
+
+        {/* Session message counter pill (shown when messages remain is low) */}
+        {sessionStatus && !sessionStatus.is_limit_reached && (
+          <div
+            className={cn(
+              'shrink-0 text-xs px-2 py-1 rounded-full font-medium',
+              sessionStatus.messages_remaining <= 10
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-slate-100 text-slate-500'
+            )}
+            title={`${sessionStatus.messages_remaining} messages remaining in this session`}
+          >
+            {sessionStatus.messages_remaining} left
+          </div>
+        )}
       </div>
 
       {/* Crisis Alert (if applicable) */}
       {latestCrisis && (
         <div className="shrink-0 px-4 pt-3">
           <CrisisAlert message={latestCrisis} />
+        </div>
+      )}
+
+      {/* Session Limit Banner */}
+      {sessionStatus && (
+        <div className="shrink-0 pt-2">
+          <SessionLimitBanner
+            status={sessionStatus}
+            limitErrorMessage={sessionLimitMessage}
+          />
         </div>
       )}
 
@@ -269,59 +320,82 @@ export default function ConversationPage({ params }: Props) {
 
       {/* Input area */}
       <div className="shrink-0 px-4 pb-4 pt-2 bg-white border-t border-slate-100">
-        <div className="flex gap-2 items-end max-w-3xl mx-auto">
-          <div className="flex-1 relative">
-            <label htmlFor="chat-input" className="sr-only">
-              Type your message
-            </label>
-            <textarea
-              id="chat-input"
-              ref={textareaRef}
-              value={input}
-              onChange={handleInput}
-              onKeyDown={handleKeyDown}
-              placeholder={CHAT_PLACEHOLDER}
-              disabled={isStreaming}
-              rows={1}
-              aria-disabled={isStreaming}
+        {isSessionBlocked ? (
+          /* Session blocked — replace input with a clear CTA */
+          <div className="max-w-3xl mx-auto rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 text-center">
+            <p className="text-xs text-amber-700 mb-2">
+              This session has ended. Start a new conversation to continue.
+            </p>
+            <Link
+              href={ROUTES.CHAT}
               className={cn(
-                'w-full resize-none rounded-2xl border bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400',
+                'inline-flex items-center gap-1.5 px-4 py-2',
+                'rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium',
                 'transition-colors duration-150',
-                'focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400',
-                'disabled:bg-slate-50 disabled:cursor-not-allowed',
-                'border-slate-200 hover:border-slate-300',
-                'min-h-[48px] max-h-[160px] overflow-y-auto'
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400'
               )}
-              style={{ height: 'auto' }}
-            />
+            >
+              <Sparkles className="w-4 h-4" aria-hidden />
+              New conversation
+            </Link>
           </div>
+        ) : (
+          <div className="flex gap-2 items-end max-w-3xl mx-auto">
+            <div className="flex-1 relative">
+              <label htmlFor="chat-input" className="sr-only">
+                Type your message
+              </label>
+              <textarea
+                id="chat-input"
+                ref={textareaRef}
+                value={input}
+                onChange={handleInput}
+                onKeyDown={handleKeyDown}
+                placeholder={CHAT_PLACEHOLDER}
+                disabled={isStreaming || isSessionBlocked}
+                rows={1}
+                aria-disabled={isStreaming || isSessionBlocked}
+                className={cn(
+                  'w-full resize-none rounded-2xl border bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400',
+                  'transition-colors duration-150',
+                  'focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400',
+                  'disabled:bg-slate-50 disabled:cursor-not-allowed',
+                  'border-slate-200 hover:border-slate-300',
+                  'min-h-[48px] max-h-[160px] overflow-y-auto'
+                )}
+                style={{ height: 'auto' }}
+              />
+            </div>
 
-          {isStreaming ? (
-            <Button
-              onClick={cancelStream}
-              variant="outline"
-              size="md"
-              leftIcon={<StopCircle className="w-4 h-4" />}
-              aria-label="Stop AI response"
-              className="shrink-0 h-12"
-            >
-              Stop
-            </Button>
-          ) : (
-            <Button
-              onClick={sendMessage}
-              disabled={!input.trim()}
-              size="md"
-              leftIcon={<Send className="w-4 h-4" />}
-              aria-label="Send message"
-              className="shrink-0 h-12"
-            >
-              Send
-            </Button>
-          )}
-        </div>
+            {isStreaming ? (
+              <Button
+                onClick={cancelStream}
+                variant="outline"
+                size="md"
+                leftIcon={<StopCircle className="w-4 h-4" />}
+                aria-label="Stop AI response"
+                className="shrink-0 h-12"
+              >
+                Stop
+              </Button>
+            ) : (
+              <Button
+                onClick={sendMessage}
+                disabled={!input.trim() || isSessionBlocked}
+                size="md"
+                leftIcon={<Send className="w-4 h-4" />}
+                aria-label="Send message"
+                className="shrink-0 h-12"
+              >
+                Send
+              </Button>
+            )}
+          </div>
+        )}
         <p className="text-center text-xs text-slate-300 mt-2">
-          Press Enter to send · Shift+Enter for new line
+          {isSessionBlocked
+            ? 'Session ended · Start a new conversation above'
+            : 'Press Enter to send · Shift+Enter for new line'}
         </p>
       </div>
     </div>

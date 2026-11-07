@@ -21,6 +21,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.connection import get_db_session
 from app.models.user import User
@@ -32,6 +33,7 @@ from app.schemas.chat import (
     MessageCreate,
     MessageOut,
     SearchResult,
+    SessionStatusOut,
 )
 from app.services.chat_service import ChatService
 
@@ -282,4 +284,30 @@ async def summarize_conversation(
     return ConversationSummaryResponse(
         conversation_id=conversation_id,
         summary=summary,
+    )
+
+
+
+# ─── Session Status ────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{conversation_id}/session-status",
+    response_model=SessionStatusOut,
+    status_code=status.HTTP_200_OK,
+    summary="Get session limit status for a conversation",
+    description=(
+        "Returns how many user messages have been sent and how many minutes the session "
+        "has been active, together with the configured limits. "
+        "The frontend uses this to show a session-limit warning banner."
+    ),
+)
+async def get_session_status(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> SessionStatusOut:
+    """Return current session usage vs configured limits."""
+    service = ChatService(db)
+    return await service.get_session_status(
+        conversation_id=conversation_id, user_id=current_user.id
     )
