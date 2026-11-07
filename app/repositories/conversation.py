@@ -9,7 +9,7 @@ Responsibilities:
 
 from typing import List, Optional, Sequence
 
-from sqlalchemy import select, delete, or_
+from sqlalchemy import select, delete, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 

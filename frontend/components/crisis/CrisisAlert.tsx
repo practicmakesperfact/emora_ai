@@ -66,18 +66,18 @@ export function CrisisAlert({ message }: CrisisAlertProps) {
       <div className="space-y-2 mb-3">
         <SupportStep
           icon={<Heart className="w-3.5 h-3.5" />}
-          text="Reach out to someone you trust — a friend, family member, or colleague."
+          text="ለምትተማመንበት/ቢው ሰው ደውል/ደውዪ — ጓደኛ፣ ቤተሰብ ወይም ባልደረባ / Reach out to someone you trust — a friend, family member, or colleague."
           colorClass={config.stepColor}
         />
         <SupportStep
           icon={<Phone className="w-3.5 h-3.5" />}
-          text="Contact a professional counselor or mental health service near you."
+          text="የአእምሮ ጤና የስልክ መስመር 8335 ደውል/ደውዪ (ነፃ፣ 24/7) / Call the Mental Health Helpline 8335 (Free, 24/7)."
           colorClass={config.stepColor}
         />
         {riskLevel === 'critical' && (
           <SupportStep
             icon={<Shield className="w-3.5 h-3.5" />}
-            text="If you are in immediate danger, please contact emergency services."
+            text="አፋጣኝ አደጋ ላይ ከሆንክ/ሽ 939 (ፖሊስ) ወይም 907 (አምቡላንስ) ደውል/ደውዪ / If you are in immediate danger, call 939 (Police) or 907 (Ambulance)."
             colorClass={config.stepColor}
           />
         )}

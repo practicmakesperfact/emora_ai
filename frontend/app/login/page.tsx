@@ -64,6 +64,7 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <form
             onSubmit={handleSubmit(onSubmit)}
+            method="post"
             noValidate
             aria-label="Sign in form"
           >

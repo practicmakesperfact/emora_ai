@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./data/uploads"
     MAX_FILE_SIZE_MB: int = 50
 
+    # ─── Session Limits ───────────────────────────────────────────
+    # Max user messages allowed per single conversation session.
+    # Prevents unhealthy emotional over-dependence on the AI.
+    SESSION_MAX_MESSAGES: int = 50
+    # Max session duration in minutes from first message.
+    SESSION_MAX_DURATION_MINUTES: int = 60
+
     # ─── Security ────────────────────────────────────────────────
     BCRYPT_ROUNDS: int = 12
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:8080"

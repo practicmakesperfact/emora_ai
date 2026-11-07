@@ -102,11 +102,11 @@ export const CRISIS_LEVELS = {
 // ─── Supported Languages ──────────────────────────────────────────────────
 
 export const LANGUAGES = [
+  { code: 'am', label: 'አማርኛ (Amharic)' },
   { code: 'en', label: 'English' },
-  { code: 'sw', label: 'Swahili' },
-  { code: 'fr', label: 'French' },
-  { code: 'es', label: 'Spanish' },
-  { code: 'ar', label: 'Arabic' },
+  { code: 'om', label: 'Afaan Oromoo' },
+  { code: 'ti', label: 'ትግርኛ (Tigrinya)' },
+  { code: 'so', label: 'Soomaali (Somali)' },
 ];
 
 // ─── Accepted File Types ──────────────────────────────────────────────────

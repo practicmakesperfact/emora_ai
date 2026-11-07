@@ -38,6 +38,11 @@ class CrisisDetectedException(AppException):
     def __init__(self, message: str, severity: str, details: Optional[Any] = None):
         super().__init__(message, status_code=400, details={"severity": severity, "details": details})
 
+class SessionLimitException(AppException):
+    """Session message or time limit reached."""
+    def __init__(self, message: str, limit_type: str, details=None):
+        super().__init__(message, status_code=429, details={"limit_type": limit_type, "details": details})
+
 class GuardrailException(AppException):
     """Guardrail policy violation exception."""
     def __init__(self, message: str, rule: str, details: Optional[Any] = None):
