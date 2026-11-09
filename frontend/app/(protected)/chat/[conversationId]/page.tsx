@@ -419,18 +419,26 @@ function MessageBubble({ message }: { message: Message }) {
     <div
       className={cn('flex gap-3 items-start', isUser && 'flex-row-reverse')}
     >
-      {/* Avatar */}
-      <div
-        className={cn(
-          'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
-          isUser ? 'bg-slate-200' : 'bg-indigo-600'
-        )}
-        aria-hidden
-      >
-        {isUser ? (
-          <User className="w-4 h-4 text-slate-600" />
-        ) : (
-          <Sparkles className="w-4 h-4 text-white" />
+      {/* Avatar + AI label */}
+      <div className={cn('flex flex-col items-center gap-1 shrink-0', isUser && 'order-last')}>
+        <div
+          className={cn(
+            'w-8 h-8 rounded-full flex items-center justify-center',
+            isUser ? 'bg-slate-200' : 'bg-indigo-600'
+          )}
+          aria-hidden
+        >
+          {isUser ? (
+            <User className="w-4 h-4 text-slate-600" />
+          ) : (
+            <Sparkles className="w-4 h-4 text-white" />
+          )}
+        </div>
+        {/* Transparency label — only on AI messages (req.md §Transparency) */}
+        {!isUser && (
+          <span className="text-[9px] font-semibold text-indigo-400 tracking-wide uppercase leading-none">
+            AI
+          </span>
         )}
       </div>
 

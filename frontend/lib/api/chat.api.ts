@@ -12,6 +12,7 @@ import type {
   Message,
   PaginationParams,
   SessionStatus,
+  DailyUsage,
 } from '@/types';
 
 export const chatApi = {
@@ -89,6 +90,12 @@ export const chatApi = {
     const res = await apiClient.get<SessionStatus>(
       `/chat/${conversationId}/session-status`
     );
+    return res.data;
+  },
+
+  /** GET /chat/daily-usage — Get today's message count vs soft limit */
+  getDailyUsage: async (): Promise<DailyUsage> => {
+    const res = await apiClient.get<DailyUsage>('/chat/daily-usage');
     return res.data;
   },
 };
