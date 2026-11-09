@@ -19,7 +19,7 @@ async def mood_tracking_node(state: dict, db) -> dict:
     """
     groq = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
-    system = get_system_prompt() + "\n\n" + MOOD_TRACKING_PROMPT
+    system = get_system_prompt(state.get("target_language", "en")) + "\n\n" + MOOD_TRACKING_PROMPT
     if state.get("memory_context"):
         system += f"\n\n{state['memory_context']}"
 

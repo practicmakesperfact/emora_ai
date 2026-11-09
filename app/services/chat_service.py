@@ -232,6 +232,9 @@ class ChatService:
                 "rag_context": "",
                 "final_response": "",
                 "response_tokens": [],
+                # Language — language_node will update these each turn
+                "target_language": "en",
+                "language_locked": False,
             }
 
             workflow = build_workflow(self._db)

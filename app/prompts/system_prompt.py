@@ -62,7 +62,33 @@ Remember: Your goal is to be a supportive companion on the user's mental wellnes
 not a replacement for professional mental health care.
 """
 
+# Language instruction appended when target_lang is explicitly known
+_LANG_INSTRUCTION = {
+    "en": (
+        "\n\nLANGUAGE INSTRUCTION (MANDATORY):\n"
+        "The user has requested or is writing in ENGLISH. "
+        "You MUST reply entirely in English, even if previous messages were in Amharic. "
+        "If the user just asked to switch to English, begin your reply with: "
+        "\"Of course, I'll continue in English.\""
+    ),
+    "am": (
+        "\n\nLANGUAGE INSTRUCTION (MANDATORY):\n"
+        "The user has requested or is writing in AMHARIC (አማርኛ). "
+        "You MUST reply entirely in Amharic, even if previous messages were in English. "
+        "If the user just asked to switch to Amharic, begin your reply with: "
+        "\"እሺ፣ በአማርኛ እቀጥላለሁ።\""
+    ),
+}
 
-def get_system_prompt() -> str:
-    """Return the core system prompt for the chatbot."""
-    return SYSTEM_PROMPT
+
+def get_system_prompt(target_lang: str = "en") -> str:
+    """
+    Return the core system prompt for the chatbot.
+
+    Args:
+        target_lang: 'en' (English) or 'am' (Amharic). When provided,
+                     a hard language instruction is appended to override
+                     the LLM's default language detection behaviour.
+    """
+    lang_suffix = _LANG_INSTRUCTION.get(target_lang, "")
+    return SYSTEM_PROMPT + lang_suffix

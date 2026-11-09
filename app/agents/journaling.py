@@ -19,7 +19,7 @@ async def journaling_node(state: dict, db) -> dict:
     """
     groq = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
-    system = get_system_prompt() + "\n\n" + JOURNALING_SYSTEM_PROMPT
+    system = get_system_prompt(state.get("target_language", "en")) + "\n\n" + JOURNALING_SYSTEM_PROMPT
     if state.get("memory_context"):
         system += f"\n\n{state['memory_context']}"
 

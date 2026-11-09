@@ -1,12 +1,12 @@
+/* Noto Sans Ethiopic for Amharic text — must be first before @import 'tailwindcss' */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
+
 @import 'tailwindcss';
 
 /* ============================================================
    Emora AI — Global Styles
    Calm, accessible mental health design system
    ============================================================ */
-
-/* Noto Sans Ethiopic for Amharic text */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
