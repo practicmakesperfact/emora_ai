@@ -14,6 +14,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/utils';
 import { useAuth } from '@/providers/AuthProvider';
 import { ROUTES, ROLES } from '@/constants';
+import { CRISIS_CARD_CONTACTS } from '@/lib/emergencyContacts';
 import {
   MessageCircle,
   BarChart2,
@@ -31,7 +32,6 @@ import {
   Database,
   PhoneCall,
 } from 'lucide-react';
-
 interface NavItem {
   href: string;
   label: string;
@@ -304,19 +304,27 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
         {/* Help card — hidden when collapsed */}
         {!collapsed && (
           <div className="mt-3 mx-1">
-            <Link href={ROUTES.SUPPORT} onClick={onClose}>
-              <div className="rounded-xl bg-rose-50 border border-rose-100 px-3 py-2.5">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <PhoneCall className="w-3 h-3 text-rose-600" aria-hidden />
-                  <p className="text-xs font-medium text-rose-700">
-                    Need immediate support?
-                  </p>
-                </div>
-                <p className="text-xs text-rose-500">
-                  Access crisis resources →
+            <div className="rounded-xl bg-rose-50 border border-rose-100 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <PhoneCall className="w-3 h-3 text-rose-600" aria-hidden />
+                <p className="text-xs font-medium text-rose-700">
+                  Need immediate support?
                 </p>
               </div>
-            </Link>
+              {/* Show primary hotline as tap-to-call — number from central config */}
+              {CRISIS_CARD_CONTACTS[0] && (
+                <a
+                  href={`tel:${CRISIS_CARD_CONTACTS[0].number}`}
+                  className="block text-xs font-semibold text-rose-700 hover:underline mb-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-rose-400 rounded"
+                  aria-label={`Call ${CRISIS_CARD_CONTACTS[0].nameEn} at ${CRISIS_CARD_CONTACTS[0].number}`}
+                >
+                  📞 {CRISIS_CARD_CONTACTS[0].number} · {CRISIS_CARD_CONTACTS[0].nameEn}
+                </a>
+              )}
+              <Link href={ROUTES.SUPPORT} onClick={onClose} className="text-xs text-rose-500 hover:underline focus:outline-none">
+                All crisis resources →
+              </Link>
+            </div>
           </div>
         )}
       </div>

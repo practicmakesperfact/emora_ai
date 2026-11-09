@@ -21,39 +21,11 @@ import Link from 'next/link';
 import { Heart, Phone, Shield, MessageCircle, X } from 'lucide-react';
 import { cn } from '@/utils';
 import { ROUTES } from '@/constants';
+import { CRISIS_CARD_CONTACTS } from '@/lib/emergencyContacts';
 import type { Message } from '@/types';
 
-// ── Emergency contacts (will be replaced by lib/emergencyContacts import in Step 4)
-// Keeping them here for now so the card works independently.
-const EMERGENCY_CONTACTS = [
-  {
-    id: 'mental-health-helpline',
-    nameEn: 'Mental Health Helpline',
-    nameAm: 'የአእምሮ ጤና የስልክ መስመር',
-    number: '8335',
-    descriptionEn: 'Free · 24/7',
-    descriptionAm: 'ነፃ · 24/7',
-    isPrimary: true,
-  },
-  {
-    id: 'police',
-    nameEn: 'Police',
-    nameAm: 'ፖሊስ',
-    number: '939',
-    descriptionEn: 'Emergency services',
-    descriptionAm: 'የአደጋ ጊዜ አገልግሎቶች',
-    isPrimary: false,
-  },
-  {
-    id: 'ambulance',
-    nameEn: 'Ambulance',
-    nameAm: 'አምቡላንስ',
-    number: '907',
-    descriptionEn: 'Emergency services',
-    descriptionAm: 'የአደጋ ጊዜ አገልግሎቶች',
-    isPrimary: false,
-  },
-];
+// ── Emergency contacts come from the central config (lib/emergencyContacts.ts)
+// Step 4 centralisation: this file no longer owns the numbers.
 
 // ── Props ────────────────────────────────────────────────────────────────────
 interface CrisisCardProps {
@@ -124,14 +96,14 @@ export function CrisisCard({ message, isMock = false, onDismiss }: CrisisCardPro
         <p className="text-xs font-semibold text-amber-900 mb-1.5">
           Call for support · ለድጋፍ ደውሉ
         </p>
-        {EMERGENCY_CONTACTS.map((contact) => (
+        {CRISIS_CARD_CONTACTS.map((contact) => (
           <a
             key={contact.id}
             href={`tel:${contact.number}`}
             className={cn(
               'flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-left transition-colors',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500',
-              contact.isPrimary
+              contact.id === 'mental-health-helpline'
                 ? 'bg-amber-600 hover:bg-amber-700 text-white'
                 : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200'
             )}
@@ -139,7 +111,7 @@ export function CrisisCard({ message, isMock = false, onDismiss }: CrisisCardPro
           >
             <div className={cn(
               'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-              contact.isPrimary ? 'bg-white/20' : 'bg-amber-200'
+              contact.id === 'mental-health-helpline' ? 'bg-white/20' : 'bg-amber-200'
             )}>
               <Phone className="w-4 h-4" aria-hidden />
             </div>
@@ -149,12 +121,12 @@ export function CrisisCard({ message, isMock = false, onDismiss }: CrisisCardPro
               </p>
               <p className={cn(
                 'text-xs leading-tight lang-am',
-                contact.isPrimary ? 'text-white/80' : 'text-amber-700'
+                contact.id === 'mental-health-helpline' ? 'text-white/80' : 'text-amber-700'
               )}>
-                {contact.nameAm} · {contact.descriptionAm}
+                {contact.nameAm} · {contact.availabilityAm}
               </p>
             </div>
-            <Shield className={cn('w-4 h-4 shrink-0', contact.isPrimary ? 'text-white/70' : 'text-amber-500')} aria-hidden />
+            <Shield className={cn('w-4 h-4 shrink-0', contact.id === 'mental-health-helpline' ? 'text-white/70' : 'text-amber-500')} aria-hidden />
           </a>
         ))}
       </div>
