@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageCircle, Plus, Search, Trash2, Clock } from 'lucide-react';
+import { MessageCircle, Plus, Search, Trash2, Clock, Activity } from 'lucide-react';
 import { chatApi } from '@/lib/api/chat.api';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
@@ -17,7 +17,7 @@ import { EmptyState, LoadingPage, ErrorMessage } from '@/components/common/Feedb
 import { Modal } from '@/components/common/Modal';
 import { formatRelativeTime, getErrorMessage, truncate } from '@/utils';
 import { getApiErrorMessage } from '@/lib/api/client';
-import type { Conversation } from '@/types';
+import type { Conversation, DailyUsage } from '@/types';
 
 export default function ChatPage() {
   const router = useRouter();
@@ -33,6 +33,16 @@ export default function ChatPage() {
   } = useQuery({
     queryKey: ['conversations'],
     queryFn: () => chatApi.listConversations({ limit: 100 }),
+  });
+
+  // Daily usage — soft informational limit (100 msgs/day)
+  const { data: dailyUsage } = useQuery<DailyUsage>({
+    queryKey: ['daily-usage'],
+    queryFn: () => chatApi.getDailyUsage(),
+    // Refresh every 60 seconds while user is on this page
+    refetchInterval: 60_000,
+    // Don't block the page load — it's informational only
+    retry: false,
   });
 
   const createMutation = useMutation({
@@ -85,6 +95,11 @@ export default function ChatPage() {
             New Chat
           </Button>
         </div>
+
+        {/* Daily Usage Bar — shown only when data is available */}
+        {dailyUsage && (
+          <DailyUsageBar usage={dailyUsage} />
+        )}
       </div>
 
       {/* Search */}
@@ -177,6 +192,52 @@ export default function ChatPage() {
   );
 }
 
+// ─── Daily Usage Bar ─────────────────────────────────────────────────────────
+/**
+ * Shows a soft daily message limit bar in the header.
+ * Turns amber when usage_percent > 80% to give the user a gentle heads-up.
+ * This is informational only — the backend does NOT hard-enforce this limit.
+ */
+function DailyUsageBar({ usage }: { usage: DailyUsage }) {
+  const pct = Math.min(usage.usage_percent, 100);
+  const isHigh = usage.is_approaching_limit;
+
+  // Color palette — calm, non-alarming
+  const barColor = isHigh ? 'bg-amber-400' : 'bg-indigo-400';
+  const textColor = isHigh ? 'text-amber-700' : 'text-slate-500';
+  const bgTrack = isHigh ? 'bg-amber-100' : 'bg-slate-100';
+  const containerBg = isHigh ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100';
+
+  return (
+    <div
+      className={`mt-3 max-w-3xl mx-auto rounded-xl border px-4 py-2.5 ${containerBg}`}
+      role="status"
+      aria-label={`Daily usage: ${usage.messages_today} of ${usage.daily_soft_limit} messages`}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <div className={`flex items-center gap-1.5 text-xs font-medium ${textColor}`}>
+          <Activity className="w-3 h-3" aria-hidden />
+          <span>Today&apos;s usage</span>
+          {isHigh && (
+            <span className="ml-1 text-amber-600 font-semibold">— taking a break can help</span>
+          )}
+        </div>
+        <span className={`text-xs font-semibold tabular-nums ${textColor}`}>
+          {usage.messages_today} / {usage.daily_soft_limit} messages
+        </span>
+      </div>
+      {/* Progress track */}
+      <div className={`h-1.5 rounded-full overflow-hidden ${bgTrack}`} aria-hidden>
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── Conversation Item ────────────────────────────────────────────────────────
 function ConversationItem({
   conversation,
   onOpen,
