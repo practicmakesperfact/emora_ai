@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { use } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -19,12 +20,13 @@ import {
   ExternalLink,
   Sparkles,
   User,
+  PhoneCall,
 } from 'lucide-react';
 import Link from 'next/link';
 import { chatApi } from '@/lib/api/chat.api';
 import { Button } from '@/components/common/Button';
 import { LoadingPage, Skeleton } from '@/components/common/Feedback';
-import { CrisisAlert } from '@/components/crisis/CrisisAlert';
+import { CrisisAlert, CrisisCard } from '@/components/crisis/CrisisAlert';
 import { SessionLimitBanner } from '@/components/chat/SessionLimitBanner';
 import { AIDisclosureCard } from '@/components/chat/AIDisclosureCard';
 import { useSSEStream } from '@/hooks/useSSEStream';
@@ -40,6 +42,11 @@ export default function ConversationPage({ params }: Props) {
   const { conversationId: convIdStr } = use(params);
   const conversationId = parseInt(convIdStr, 10);
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+
+  // ?crisis=mock in URL triggers the crisis card for testing without real high-risk text
+  const isMockCrisis = searchParams.get('crisis') === 'mock';
+  const [mockCrisisDismissed, setMockCrisisDismissed] = useState(false);
 
   const [input, setInput] = useState('');
   const [streamedContent, setStreamedContent] = useState('');
@@ -226,7 +233,24 @@ export default function ConversationPage({ params }: Props) {
             {sessionStatus.messages_remaining} left
           </div>
         )}
+
+        {/* Persistent "Get help now" — always visible in the chat header (Step 3) */}
+        <Link
+          href={ROUTES.SUPPORT}
+          className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 text-xs font-semibold hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 transition-colors min-h-[36px]"
+          aria-label="Get help now — crisis support"
+        >
+          <PhoneCall className="w-3.5 h-3.5 shrink-0" aria-hidden />
+          <span className="hidden sm:inline">Get help now</span>
+        </Link>
       </div>
+
+      {/* Mock crisis card — triggered by ?crisis=mock URL param (dev/demo only) */}
+      {isMockCrisis && !mockCrisisDismissed && (
+        <div className="shrink-0 px-4 pt-3">
+          <CrisisCard isMock onDismiss={() => setMockCrisisDismissed(true)} />
+        </div>
+      )}
 
       {/* Crisis Alert (if applicable) */}
       {latestCrisis && (

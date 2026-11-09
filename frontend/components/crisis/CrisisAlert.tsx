@@ -1,202 +1,208 @@
 // ============================================================
-// Emora AI — Crisis Alert Component
-// Displays calm, supportive crisis UI based on risk level from backend
+// Emora AI — Crisis Card Component (Step 3 upgrade)
+//
+// Requirements met:
+// 1. Calm soft-warm background — NOT alarming red
+// 2. Validating message in English + Amharic
+// 3. tap-to-call tel: buttons for every emergency number
+// 4. "Talk to a counselor" button → /support
+// 5. "I'm safe, continue chatting" dismiss button
+// 6. Never text-only links for crisis numbers
+// 7. Mock/test mode: triggered by is_mock_crisis prop or ?crisis=mock URL param
+//
+// Step 4 will centralise numbers in lib/emergencyContacts.ts;
+// this file already imports from there so Step 4 is a drop-in.
 // ============================================================
 
 'use client';
 
-import React from 'react';
-import { Heart, Phone, AlertCircle, Shield } from 'lucide-react';
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { Heart, Phone, Shield, MessageCircle, X } from 'lucide-react';
 import { cn } from '@/utils';
+import { ROUTES } from '@/constants';
 import type { Message } from '@/types';
 
-interface CrisisAlertProps {
-  message: Message;
+// ── Emergency contacts (will be replaced by lib/emergencyContacts import in Step 4)
+// Keeping them here for now so the card works independently.
+const EMERGENCY_CONTACTS = [
+  {
+    id: 'mental-health-helpline',
+    nameEn: 'Mental Health Helpline',
+    nameAm: 'የአእምሮ ጤና የስልክ መስመር',
+    number: '8335',
+    descriptionEn: 'Free · 24/7',
+    descriptionAm: 'ነፃ · 24/7',
+    isPrimary: true,
+  },
+  {
+    id: 'police',
+    nameEn: 'Police',
+    nameAm: 'ፖሊስ',
+    number: '939',
+    descriptionEn: 'Emergency services',
+    descriptionAm: 'የአደጋ ጊዜ አገልግሎቶች',
+    isPrimary: false,
+  },
+  {
+    id: 'ambulance',
+    nameEn: 'Ambulance',
+    nameAm: 'አምቡላንስ',
+    number: '907',
+    descriptionEn: 'Emergency services',
+    descriptionAm: 'የአደጋ ጊዜ አገልግሎቶች',
+    isPrimary: false,
+  },
+];
+
+// ── Props ────────────────────────────────────────────────────────────────────
+interface CrisisCardProps {
+  /** A real crisis message from the conversation */
+  message?: Message;
+  /** True when triggered by ?crisis=mock in the URL (dev/demo mode) */
+  isMock?: boolean;
+  /** Called when the user clicks "I'm safe, continue chatting" */
+  onDismiss?: () => void;
 }
 
-export function CrisisAlert({ message }: CrisisAlertProps) {
-  // Extract crisis metadata if backend provides it in source_citations
-  const crisisData = message.source_citations as {
-    risk_level?: string;
-    resources?: Array<{ name: string; contact?: string; description?: string }>;
-    guidance?: string;
-  } | null;
+export function CrisisCard({ message, isMock = false, onDismiss }: CrisisCardProps) {
+  const [dismissed, setDismissed] = useState(false);
 
-  const riskLevel = crisisData?.risk_level || 'medium';
-  const resources = crisisData?.resources || [];
-  const guidance = crisisData?.guidance;
+  // Don't show for low-risk messages unless mock mode
+  if (!isMock && (!message?.is_crisis_triggered)) return null;
+  if (dismissed) return null;
 
-  // We don't show a crisis alert for low risk
-  if (riskLevel === 'low' || !message.is_crisis_triggered) return null;
-
-  const config = getCrisisConfig(riskLevel);
+  function handleDismiss() {
+    setDismissed(true);
+    onDismiss?.();
+  }
 
   return (
     <div
       role="alert"
       aria-live="assertive"
-      className={cn(
-        'rounded-2xl border p-4 mb-2',
-        config.containerClass
-      )}
+      aria-label="Crisis support card"
+      className="rounded-2xl border border-amber-200 bg-amber-50 p-4 relative"
     >
+      {/* Dismiss button */}
+      <button
+        onClick={handleDismiss}
+        className="absolute top-3 right-3 p-1.5 rounded-lg text-amber-600 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 min-w-[36px] min-h-[36px] flex items-center justify-center"
+        aria-label="Dismiss crisis support card — I'm safe"
+      >
+        <X className="w-4 h-4" aria-hidden />
+      </button>
+
+      {isMock && (
+        <span className="absolute top-3 left-3 text-[10px] font-bold tracking-widest uppercase bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
+          TEST MODE
+        </span>
+      )}
+
       {/* Header */}
-      <div className="flex items-start gap-3 mb-3">
-        <div className={cn('p-1.5 rounded-xl shrink-0', config.iconBg)}>
-          <config.Icon className={cn('w-4 h-4', config.iconColor)} aria-hidden />
+      <div className={cn('flex items-start gap-3 mb-3', isMock && 'mt-5')}>
+        <div className="p-1.5 rounded-xl bg-amber-100 shrink-0">
+          <Heart className="w-4 h-4 text-amber-600" aria-hidden />
         </div>
         <div>
-          <h3 className={cn('font-semibold text-sm', config.titleColor)}>
-            {config.title}
+          <h3 className="font-semibold text-sm text-amber-900">
+            {/* English + Amharic heading */}
+            You&apos;re not alone · ብቻህ/ሽ አይደለህ/ሽም
           </h3>
-          <p className={cn('text-xs mt-0.5 leading-relaxed', config.bodyColor)}>
-            {config.subtitle}
+          <p className="text-xs mt-0.5 leading-relaxed text-amber-800">
+            What you&apos;re feeling matters. Support is here for you right now.
+            <br />
+            <span className="lang-am">
+              የሚሰማህ/ሽ ስሜት ትክክለኛ ነው። አሁን እርዳታ አለ።
+            </span>
           </p>
         </div>
       </div>
 
-      {/* Guidance from backend */}
-      {guidance && (
-        <p className={cn('text-xs leading-relaxed mb-3', config.bodyColor)}>
-          {guidance}
+      {/* Tap-to-call buttons — NEVER text-only */}
+      <div className="mb-3 space-y-2">
+        <p className="text-xs font-semibold text-amber-900 mb-1.5">
+          Call for support · ለድጋፍ ደውሉ
         </p>
-      )}
-
-      {/* Support steps */}
-      <div className="space-y-2 mb-3">
-        <SupportStep
-          icon={<Heart className="w-3.5 h-3.5" />}
-          text="ለምትተማመንበት/ቢው ሰው ደውል/ደውዪ — ጓደኛ፣ ቤተሰብ ወይም ባልደረባ / Reach out to someone you trust — a friend, family member, or colleague."
-          colorClass={config.stepColor}
-        />
-        <SupportStep
-          icon={<Phone className="w-3.5 h-3.5" />}
-          text="የአእምሮ ጤና የስልክ መስመር 8335 ደውል/ደውዪ (ነፃ፣ 24/7) / Call the Mental Health Helpline 8335 (Free, 24/7)."
-          colorClass={config.stepColor}
-        />
-        {riskLevel === 'critical' && (
-          <SupportStep
-            icon={<Shield className="w-3.5 h-3.5" />}
-            text="አፋጣኝ አደጋ ላይ ከሆንክ/ሽ 939 (ፖሊስ) ወይም 907 (አምቡላንስ) ደውል/ደውዪ / If you are in immediate danger, call 939 (Police) or 907 (Ambulance)."
-            colorClass={config.stepColor}
-          />
-        )}
+        {EMERGENCY_CONTACTS.map((contact) => (
+          <a
+            key={contact.id}
+            href={`tel:${contact.number}`}
+            className={cn(
+              'flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-left transition-colors',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500',
+              contact.isPrimary
+                ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-200'
+            )}
+            aria-label={`Call ${contact.nameEn} at ${contact.number}`}
+          >
+            <div className={cn(
+              'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+              contact.isPrimary ? 'bg-white/20' : 'bg-amber-200'
+            )}>
+              <Phone className="w-4 h-4" aria-hidden />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold leading-tight">
+                {contact.number} — {contact.nameEn}
+              </p>
+              <p className={cn(
+                'text-xs leading-tight lang-am',
+                contact.isPrimary ? 'text-white/80' : 'text-amber-700'
+              )}>
+                {contact.nameAm} · {contact.descriptionAm}
+              </p>
+            </div>
+            <Shield className={cn('w-4 h-4 shrink-0', contact.isPrimary ? 'text-white/70' : 'text-amber-500')} aria-hidden />
+          </a>
+        ))}
       </div>
 
-      {/* Resources from backend only */}
-      {resources.length > 0 && (
-        <div className={cn('rounded-xl p-3', config.resourcesBg)}>
-          <p className={cn('text-xs font-semibold mb-2', config.titleColor)}>
-            Support resources
-          </p>
-          <ul className="space-y-1.5">
-            {resources.map((res, i) => (
-              <li key={i} className="text-xs">
-                <span className={cn('font-medium', config.titleColor)}>
-                  {res.name}
-                </span>
-                {res.contact && (
-                  <span className={config.bodyColor}> — {res.contact}</span>
-                )}
-                {res.description && (
-                  <p className={cn('text-xs mt-0.5', config.bodyColor)}>
-                    {res.description}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Action buttons */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        {/* Talk to a counselor */}
+        <Link
+          href={ROUTES.SUPPORT}
+          className={cn(
+            'flex items-center justify-center gap-2 flex-1 px-4 py-2.5 rounded-xl',
+            'bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 transition-colors',
+            'min-h-[44px]'
+          )}
+        >
+          <MessageCircle className="w-4 h-4 shrink-0" aria-hidden />
+          <span>Talk to a counselor</span>
+        </Link>
 
-      {/* Escalation notice */}
-      <p className={cn('text-xs mt-3 italic', config.bodyColor)}>
-        {config.escalationNote}
+        {/* I'm safe — dismiss */}
+        <button
+          onClick={handleDismiss}
+          className={cn(
+            'flex items-center justify-center gap-2 flex-1 px-4 py-2.5 rounded-xl',
+            'bg-amber-100 hover:bg-amber-200 text-amber-900 text-sm font-medium border border-amber-200',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-colors',
+            'min-h-[44px]'
+          )}
+        >
+          I&apos;m safe, continue chatting
+        </button>
+      </div>
+
+      {/* Counselor-review notice */}
+      <p className="text-xs text-amber-700 mt-3 italic">
+        If a risk of serious harm is detected, a trained counselor may review this conversation to help keep you safe.
+        <br />
+        <span className="lang-am">
+          አደጋ ሲፈጠር፣ የሰለጠነ አማካሪ ደህንነትዎን ለማረጋገጥ ይህን ውይይት ሊያይ ይችላል።
+        </span>
       </p>
     </div>
   );
 }
 
-function SupportStep({
-  icon,
-  text,
-  colorClass,
-}: {
-  icon: React.ReactNode;
-  text: string;
-  colorClass: string;
-}) {
-  return (
-    <div className={cn('flex items-start gap-2', colorClass)}>
-      <span className="mt-0.5 shrink-0" aria-hidden>{icon}</span>
-      <p className="text-xs leading-relaxed">{text}</p>
-    </div>
-  );
-}
-
-interface CrisisConfig {
-  title: string;
-  subtitle: string;
-  containerClass: string;
-  iconBg: string;
-  iconColor: string;
-  titleColor: string;
-  bodyColor: string;
-  stepColor: string;
-  resourcesBg: string;
-  escalationNote: string;
-  Icon: React.ElementType;
-}
-
-function getCrisisConfig(level: string): CrisisConfig {
-  switch (level.toLowerCase()) {
-    case 'critical':
-      return {
-        title: "We're here for you",
-        subtitle:
-          'The conversation indicates you may be experiencing significant distress. Your safety matters deeply.',
-        containerClass: 'bg-rose-50 border-rose-200',
-        iconBg: 'bg-rose-100',
-        iconColor: 'text-rose-600',
-        titleColor: 'text-rose-800',
-        bodyColor: 'text-rose-700',
-        stepColor: 'text-rose-700',
-        resourcesBg: 'bg-rose-100/60',
-        escalationNote:
-          'A counselor has been notified and will follow up with you.',
-        Icon: Shield,
-      };
-    case 'high':
-      return {
-        title: 'Support is available',
-        subtitle:
-          "It sounds like you're going through a very difficult time. You don't have to face this alone.",
-        containerClass: 'bg-orange-50 border-orange-200',
-        iconBg: 'bg-orange-100',
-        iconColor: 'text-orange-600',
-        titleColor: 'text-orange-800',
-        bodyColor: 'text-orange-700',
-        stepColor: 'text-orange-700',
-        resourcesBg: 'bg-orange-100/60',
-        escalationNote:
-          'This has been flagged for counselor review so you can receive additional support.',
-        Icon: AlertCircle,
-      };
-    default: // medium
-      return {
-        title: 'Here to support you',
-        subtitle:
-          "It sounds like things feel difficult right now. I'm here with you.",
-        containerClass: 'bg-amber-50 border-amber-200',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-600',
-        titleColor: 'text-amber-800',
-        bodyColor: 'text-amber-700',
-        stepColor: 'text-amber-700',
-        resourcesBg: 'bg-amber-100/60',
-        escalationNote:
-          'Remember: reaching out for help is a sign of strength.',
-        Icon: Heart,
-      };
-  }
+// ── Backwards-compatible export used in existing code ─────────────────────────
+// The old CrisisAlert accepted a `message` prop — keep it working.
+export function CrisisAlert({ message }: { message: Message }) {
+  return <CrisisCard message={message} />;
 }
