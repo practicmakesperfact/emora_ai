@@ -29,8 +29,9 @@ import { LoadingPage, Skeleton } from '@/components/common/Feedback';
 import { CrisisAlert, CrisisCard } from '@/components/crisis/CrisisAlert';
 import { SessionLimitBanner } from '@/components/chat/SessionLimitBanner';
 import { AIDisclosureCard } from '@/components/chat/AIDisclosureCard';
+import { ConsentScreen, hasConsented } from '@/components/chat/ConsentScreen';
 import { useSSEStream } from '@/hooks/useSSEStream';
-import { formatTime, cn, truncate } from '@/utils';
+import { formatTime, cn } from '@/utils';
 import { ROUTES, CHAT_PLACEHOLDER, PRIVACY_NOTICE } from '@/constants';
 import type { Message, SessionStatus } from '@/types';
 
@@ -47,6 +48,15 @@ export default function ConversationPage({ params }: Props) {
   // ?crisis=mock in URL triggers the crisis card for testing without real high-risk text
   const isMockCrisis = searchParams.get('crisis') === 'mock';
   const [mockCrisisDismissed, setMockCrisisDismissed] = useState(false);
+
+  // ── Consent gate — shown once before first ever message ───────────────────
+  const [showConsent, setShowConsent] = useState(false);
+  useEffect(() => {
+    if (!hasConsented()) setShowConsent(true);
+  }, []);
+
+  // ── Privacy banner expand/collapse ────────────────────────────────────────
+  const [privacyExpanded, setPrivacyExpanded] = useState(false);
 
   const [input, setInput] = useState('');
   const [streamedContent, setStreamedContent] = useState('');
@@ -202,6 +212,10 @@ export default function ConversationPage({ params }: Props) {
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
+      {/* Consent gate overlay — shown once before first ever message */}
+      {showConsent && (
+        <ConsentScreen onAccept={() => setShowConsent(false)} />
+      )}
       {/* Header */}
       <div className="shrink-0 px-4 py-3 bg-white border-b border-slate-100 flex items-center gap-3">
         <Link href={ROUTES.CHAT} aria-label="Back to conversations">
@@ -337,12 +351,20 @@ export default function ConversationPage({ params }: Props) {
         <div ref={bottomRef} aria-hidden />
       </div>
 
-      {/* Privacy reminder */}
+      {/* Privacy reminder — 1-line summary + "Learn more" expander */}
       <div className="shrink-0 px-4 pb-1">
         <div className="flex items-start gap-1.5 px-3 py-2 rounded-xl bg-slate-100/80">
           <Info className="w-3 h-3 text-slate-400 mt-0.5 shrink-0" aria-hidden />
           <p className="text-xs text-slate-400 leading-relaxed">
-            {truncate(PRIVACY_NOTICE, 120)}
+            {privacyExpanded ? PRIVACY_NOTICE : 'Your chats are stored to improve the service. Avoid sharing your full name or ID number.'}
+            {' '}
+            <button
+              type="button"
+              onClick={() => setPrivacyExpanded((v) => !v)}
+              className="text-indigo-400 hover:text-indigo-600 underline focus:outline-none focus-visible:ring-1 focus-visible:ring-indigo-400 rounded"
+            >
+              {privacyExpanded ? 'Show less' : 'Learn more'}
+            </button>
           </p>
         </div>
       </div>

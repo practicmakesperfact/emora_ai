@@ -162,10 +162,11 @@ export default function SettingsPage() {
               <div className="flex gap-2.5 items-start p-3 bg-slate-50 border border-slate-100 rounded-xl">
                 <HelpCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" aria-hidden />
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Emora is built with your confidentiality in mind. Your
-                  conversations and logs are encrypted at rest on the local host.
-                  We do not share your logs with third-party networks except for
-                  local RAG document matching.
+                  Your conversations are stored in a local PostgreSQL database on this server.
+                  The AI model (Llama via Groq API) processes your messages on Groq&apos;s servers —
+                  messages are sent there for each response.
+                  Uploaded documents for RAG are stored locally and embedded via Ollama (runs on this server).
+                  No data is shared with third-party advertising or analytics services.
                 </p>
               </div>
             </div>
