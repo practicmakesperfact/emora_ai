@@ -1,5 +1,7 @@
 // ============================================================
 // Emora AI — Register Page
+// Includes role selection (User / Counselor).
+// Role-aware redirect after registration.
 // ============================================================
 
 'use client';
@@ -9,39 +11,45 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Heart, Mail, Lock, User } from 'lucide-react';
-import { useAuth } from '@/providers/AuthProvider';
+import { Heart, Mail, Lock, User, Briefcase } from 'lucide-react';
+import { useAuth, getRoleHome } from '@/providers/AuthProvider';
 import { registerSchema, type RegisterFormData } from '@/schemas';
 import { Input } from '@/components/common/Input';
 import { Button } from '@/components/common/Button';
 import { InlineError } from '@/components/common/Feedback';
 import { getApiErrorMessage } from '@/lib/api/client';
-import { ROUTES, APP_DISCLAIMER, PRIVACY_NOTICE } from '@/constants';
+import { ROUTES, APP_DISCLAIMER, PRIVACY_NOTICE, ROLES } from '@/constants';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register: authRegister, user } = useAuth();
+  const { register: authRegister, user, isLoading } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
+  // If already logged in redirect by role
   React.useEffect(() => {
-    if (user) router.replace(ROUTES.DASHBOARD);
-  }, [user, router]);
+    if (!isLoading && user) {
+      router.replace(getRoleHome(user));
+    }
+  }, [user, isLoading, router]);
 
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<any>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(registerSchema) as any,
     defaultValues: {
-      role_name: 'User',
+      role_name: ROLES.USER,
       preferred_language: 'en',
       time_zone: 'UTC',
     },
   });
+
+  const selectedRole = watch('role_name');
 
   async function onSubmit(data: RegisterFormData) {
     if (!privacyAccepted) {
@@ -52,8 +60,9 @@ export default function RegisterPage() {
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { confirmPassword, ...payload } = data;
-      await authRegister(payload);
-      router.push(ROUTES.DASHBOARD);
+      // register() returns the User profile — redirect immediately by role
+      const profile = await authRegister(payload);
+      router.push(getRoleHome(profile));
     } catch (err) {
       setApiError(getApiErrorMessage(err));
     }
@@ -87,6 +96,73 @@ export default function RegisterPage() {
             aria-label="Create account form"
           >
             <div className="space-y-4">
+
+              {/* ── Role selection ── */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  I am signing up as
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {/* User option */}
+                  <label
+                    className={[
+                      'flex items-center gap-2.5 cursor-pointer rounded-xl border-2 px-3 py-3 transition-colors',
+                      selectedRole === ROLES.USER
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-slate-200 hover:border-slate-300',
+                    ].join(' ')}
+                  >
+                    <input
+                      type="radio"
+                      value={ROLES.USER}
+                      className="sr-only"
+                      {...register('role_name')}
+                    />
+                    <User
+                      className={`w-4 h-4 shrink-0 ${selectedRole === ROLES.USER ? 'text-indigo-600' : 'text-slate-400'}`}
+                      aria-hidden
+                    />
+                    <div>
+                      <p className={`text-xs font-semibold ${selectedRole === ROLES.USER ? 'text-indigo-700' : 'text-slate-700'}`}>
+                        User
+                      </p>
+                      <p className="text-[10px] text-slate-400 leading-tight">
+                        Seeking support
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* Counselor option */}
+                  <label
+                    className={[
+                      'flex items-center gap-2.5 cursor-pointer rounded-xl border-2 px-3 py-3 transition-colors',
+                      selectedRole === ROLES.COUNSELOR
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-slate-200 hover:border-slate-300',
+                    ].join(' ')}
+                  >
+                    <input
+                      type="radio"
+                      value={ROLES.COUNSELOR}
+                      className="sr-only"
+                      {...register('role_name')}
+                    />
+                    <Briefcase
+                      className={`w-4 h-4 shrink-0 ${selectedRole === ROLES.COUNSELOR ? 'text-emerald-600' : 'text-slate-400'}`}
+                      aria-hidden
+                    />
+                    <div>
+                      <p className={`text-xs font-semibold ${selectedRole === ROLES.COUNSELOR ? 'text-emerald-700' : 'text-slate-700'}`}>
+                        Counselor
+                      </p>
+                      <p className="text-[10px] text-slate-400 leading-tight">
+                        Monitoring dashboard
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               <Input
                 label="Full name"
                 type="text"
@@ -160,7 +236,9 @@ export default function RegisterPage() {
                 isLoading={isSubmitting}
                 disabled={!privacyAccepted}
               >
-                Create Account
+                {selectedRole === ROLES.COUNSELOR
+                  ? 'Create Counselor Account'
+                  : 'Create Account'}
               </Button>
             </div>
           </form>

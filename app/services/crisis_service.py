@@ -1,6 +1,8 @@
 """
 Emora Backend - Crisis Service
 Orchestrates crisis detection, incident logging, and counselor management.
+When a High/Critical incident is logged it also broadcasts a real-time
+HITL (Human-in-the-Loop) alert to every connected counselor dashboard.
 """
 
 import json
@@ -10,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import NotFoundException
+from app.core.hitl_manager import hitl_manager
 from app.core.logging import get_logger
 from app.models.crisis import Incident
 from app.repositories.crisis import CrisisRepository
@@ -37,7 +40,8 @@ class CrisisService:
     ) -> dict:
         """
         Classify the risk level of a user message. If High or Critical,
-        log an incident and return the crisis response text.
+        log an incident and broadcast a real-time HITL alert to connected
+        counselor dashboards.
 
         Returns:
             dict with keys: risk_level, is_crisis, response_override (if crisis)
@@ -52,6 +56,7 @@ class CrisisService:
             result["is_crisis"] = True
             result["response_override"] = CRISIS_RESPONSE_HIGH
 
+            # ── 1. Persist the incident ──────────────────────────────────────
             incident = Incident(
                 user_id=user_id,
                 conversation_id=conversation_id,
@@ -66,6 +71,28 @@ class CrisisService:
                 user_id=user_id,
                 risk_level=risk_level,
                 incident_id=incident.id,
+            )
+
+            # ── 2. Broadcast HITL alert to connected counselors ──────────────
+            # Only High/Critical incidents reach here — this directly satisfies
+            # req.md §7.3: "If S > 8/10, automatically ping the counselor dashboard"
+            await hitl_manager.broadcast_alert(
+                {
+                    "type": "new_incident",
+                    "incident_id": incident.id,
+                    "user_id": user_id,
+                    "risk_level": risk_level,
+                    "message_preview": message[:120],
+                    "conversation_id": conversation_id,
+                    "created_at": incident.created_at.isoformat()
+                    if incident.created_at
+                    else None,
+                }
+            )
+            logger.info(
+                "HITL alert broadcast",
+                incident_id=incident.id,
+                counselors_online=hitl_manager.connected_count,
             )
 
         return result

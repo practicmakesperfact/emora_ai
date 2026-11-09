@@ -1,5 +1,8 @@
 // ============================================================
 // Emora AI — Login Page
+// Role-aware redirect on success:
+//   Counselor / Admin → /counselor/dashboard
+//   User              → /dashboard
 // ============================================================
 
 'use client';
@@ -10,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Heart, Mail, Lock } from 'lucide-react';
-import { useAuth } from '@/providers/AuthProvider';
+import { useAuth, getRoleHome } from '@/providers/AuthProvider';
 import { loginSchema, type LoginFormData } from '@/schemas';
 import { Input } from '@/components/common/Input';
 import { Button } from '@/components/common/Button';
@@ -20,13 +23,15 @@ import { ROUTES, APP_DISCLAIMER } from '@/constants';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, user } = useAuth();
+  const { login, user, isLoading } = useAuth();
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // Redirect if already logged in
+  // If already logged in (e.g. page refresh with valid token), redirect by role
   React.useEffect(() => {
-    if (user) router.replace(ROUTES.DASHBOARD);
-  }, [user, router]);
+    if (!isLoading && user) {
+      router.replace(getRoleHome(user));
+    }
+  }, [user, isLoading, router]);
 
   const {
     register,
@@ -39,8 +44,10 @@ export default function LoginPage() {
   async function onSubmit(data: LoginFormData) {
     setApiError(null);
     try {
-      await login(data);
-      router.push(ROUTES.DASHBOARD);
+      // login() returns the fetched User profile — use it immediately
+      // so we don't have to wait for the React state update cycle
+      const profile = await login(data);
+      router.push(getRoleHome(profile));
     } catch (err) {
       setApiError(getApiErrorMessage(err));
     }
