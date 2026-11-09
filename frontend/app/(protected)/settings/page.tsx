@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Globe, MapPin, Shield, Eye, HelpCircle } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
@@ -15,9 +16,15 @@ import { Button } from '@/components/common/Button';
 import { Card } from '@/components/common/Card';
 import { Input } from '@/components/common/Input';
 import { InlineError } from '@/components/common/Feedback';
-import { profileSchema, type ProfileFormData } from '@/schemas';
 import { getErrorMessage } from '@/utils';
 import { LANGUAGES } from '@/constants';
+
+// Local schema for settings (language + timezone only)
+const settingsSchema = z.object({
+  preferred_language: z.string().max(10).optional(),
+  time_zone: z.string().max(50).optional(),
+});
+type SettingsFormData = z.infer<typeof settingsSchema>;
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -38,16 +45,16 @@ export default function SettingsPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
+  } = useForm<SettingsFormData>({
+    resolver: zodResolver(settingsSchema),
     defaultValues: {
       preferred_language: user?.preferred_language || 'en',
-      time_zone: user?.time_zone || 'UTC',
+      time_zone: user?.time_zone || 'Africa/Addis_Ababa',
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: ProfileFormData) => {
+    mutationFn: (data: SettingsFormData) => {
       return usersApi.updateMe({
         preferred_language: data.preferred_language,
         time_zone: data.time_zone,

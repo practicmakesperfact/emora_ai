@@ -33,6 +33,16 @@ export const registerSchema = z.object({
 
 // ─── User Profile Schema ──────────────────────────────────────────────────
 
+/** Ethiopian phone: +251 9XXXXXXXX, +251 7XXXXXXXX, 09XXXXXXXX, 07XXXXXXXX */
+const ethiopianPhone = z
+  .string()
+  .optional()
+  .or(z.literal(''))
+  .refine(
+    (v) => !v || /^(\+2519\d{8}|\+2517\d{8}|09\d{8}|07\d{8})$/.test(v.replace(/\s/g, '')),
+    { message: 'Enter a valid Ethiopian phone: +251 9XX…, 09XX…, or 07XX…' }
+  );
+
 export const profileSchema = z.object({
   full_name: z
     .string()
@@ -40,17 +50,29 @@ export const profileSchema = z.object({
     .max(100)
     .optional(),
   email: z.string().email('Please enter a valid email address').optional(),
-  preferred_language: z.string().max(10).optional(),
-  time_zone: z.string().max(50).optional(),
   mental_wellness_goal: z.string().max(500).optional().or(z.literal('')),
-  emergency_contact: z.string().max(200).optional().or(z.literal('')),
+  // Emergency contact — split into 3 sub-fields
+  ec_name: z.string().max(80).optional().or(z.literal('')),
+  ec_relationship: z.string().max(50).optional().or(z.literal('')),
+  ec_phone: ethiopianPhone,
+  // Password change — separate section; never pre-filled
+  current_password: z.string().optional().or(z.literal('')),
   password: z
     .string()
     .min(6, 'New password must be at least 6 characters')
     .max(100)
     .optional()
     .or(z.literal('')),
-});
+}).refine(
+  (d) => {
+    // If new password is provided, current_password must also be provided
+    if (d.password && d.password.length > 0) {
+      return !!(d.current_password && d.current_password.length > 0);
+    }
+    return true;
+  },
+  { message: 'Enter your current password to set a new one', path: ['current_password'] }
+);
 
 // ─── Mood Schema ─────────────────────────────────────────────────────────
 
