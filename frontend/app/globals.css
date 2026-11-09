@@ -5,10 +5,14 @@
    Calm, accessible mental health design system
    ============================================================ */
 
+/* Noto Sans Ethiopic for Amharic text */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
+
 @layer base {
   :root {
     --color-primary: 99 102 241; /* indigo-500 */
     --font-sans: var(--font-inter), system-ui, sans-serif;
+    --font-ethiopic: 'Noto Sans Ethiopic', system-ui, sans-serif;
   }
 
   /* Reduced motion support */
@@ -36,6 +40,14 @@
   *:focus-visible {
     outline: 2px solid theme('colors.indigo.500');
     outline-offset: 2px;
+  }
+
+  /* Amharic / Ethiopic text — larger, more line height */
+  :lang(am),
+  .lang-am {
+    font-family: var(--font-ethiopic);
+    font-size: 1rem;
+    line-height: 1.75;
   }
 
   /* Chat bubble scroll */

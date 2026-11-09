@@ -3,6 +3,7 @@ import localFont from 'next/font/local';
 import './globals.css';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { AuthProvider } from '@/providers/AuthProvider';
+import { LanguageProvider } from '@/providers/LanguageProvider';
 
 const inter = localFont({
   src: '../public/fonts/inter-var.woff2',
@@ -43,7 +44,9 @@ export default function RootLayout({
         </a>
 
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <LanguageProvider>{children}</LanguageProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>
