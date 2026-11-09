@@ -30,6 +30,7 @@ from app.schemas.chat import (
     ConversationOut,
     ConversationSearchResponse,
     ConversationSummaryResponse,
+    DailyUsageOut,
     MessageCreate,
     MessageOut,
     SearchResult,
@@ -311,3 +312,26 @@ async def get_session_status(
     return await service.get_session_status(
         conversation_id=conversation_id, user_id=current_user.id
     )
+
+
+
+# ─── Daily Usage ───────────────────────────────────────────────────────────────
+
+@router.get(
+    "/daily-usage",
+    response_model=DailyUsageOut,
+    status_code=status.HTTP_200_OK,
+    summary="Get today's total message usage across all conversations",
+    description=(
+        "Returns how many messages the current user has sent today (UTC) "
+        "across ALL their conversations, plus a soft daily limit for display. "
+        "This is a transparency indicator only — it is not enforced server-side."
+    ),
+)
+async def get_daily_usage(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> DailyUsageOut:
+    """Return today's message count vs soft daily limit for transparency display."""
+    service = ChatService(db)
+    return await service.get_daily_usage(user_id=current_user.id)

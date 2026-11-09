@@ -229,3 +229,30 @@ class ConversationRepository:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_user_messages_today(self, user_id: int) -> int:
+        """
+        Count how many 'user' role messages the given user has sent today
+        (UTC day) across ALL their conversations. Used for the daily usage
+        transparency indicator on the chat list page.
+        """
+        from datetime import date, datetime, timezone
+
+        today_start = datetime(
+            *date.today().timetuple()[:3], tzinfo=timezone.utc
+        )
+
+        user_conversations = (
+            select(Conversation.id)
+            .where(Conversation.user_id == user_id)
+            .scalar_subquery()
+        )
+
+        result = await self.db.execute(
+            select(func.count(Message.id)).where(
+                Message.conversation_id.in_(user_conversations),
+                Message.role == "user",
+                Message.created_at >= today_start,
+            )
+        )
+        return result.scalar_one() or 0

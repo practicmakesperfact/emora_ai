@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     SESSION_MAX_MESSAGES: int = 50
     # Max session duration in minutes from first message.
     SESSION_MAX_DURATION_MINUTES: int = 60
+    # Soft daily message cap shown as a transparency indicator on the frontend.
+    # This is NOT enforced server-side — it is informational only.
+    SESSION_DAILY_SOFT_LIMIT: int = 100
 
     # ─── Security ────────────────────────────────────────────────
     BCRYPT_ROUNDS: int = 12

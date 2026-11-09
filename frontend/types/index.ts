@@ -231,3 +231,12 @@ export interface SessionStatus {
   is_duration_limit_reached: boolean;
   is_limit_reached: boolean;
 }
+
+// ─── Daily Usage (Transparency indicator) ─────────────────────────────────────
+
+export interface DailyUsage {
+  messages_today: number;
+  daily_soft_limit: number;
+  usage_percent: number;
+  is_approaching_limit: boolean;
+}

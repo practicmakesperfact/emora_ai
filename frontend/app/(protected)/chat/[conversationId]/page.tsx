@@ -26,6 +26,7 @@ import { Button } from '@/components/common/Button';
 import { LoadingPage, Skeleton } from '@/components/common/Feedback';
 import { CrisisAlert } from '@/components/crisis/CrisisAlert';
 import { SessionLimitBanner } from '@/components/chat/SessionLimitBanner';
+import { AIDisclosureCard } from '@/components/chat/AIDisclosureCard';
 import { useSSEStream } from '@/hooks/useSSEStream';
 import { formatTime, cn, truncate } from '@/utils';
 import { ROUTES, CHAT_PLACEHOLDER, PRIVACY_NOTICE } from '@/constants';
@@ -252,17 +253,21 @@ export default function ConversationPage({ params }: Props) {
         aria-live="polite"
       >
         {messages.length === 0 && !isStreaming && (
-          <div className="flex flex-col items-center justify-center h-full text-center px-6">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-3">
-              <Sparkles className="w-6 h-6 text-indigo-500" aria-hidden />
+          <div className="flex flex-col items-center justify-center h-full px-4 py-6 gap-4">
+            {/* AI Transparency Disclosure — req.md §Transparency & Limits */}
+            <AIDisclosureCard />
+
+            {/* Ready-to-chat prompt */}
+            <div className="text-center">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center mb-2 mx-auto">
+                <Sparkles className="w-5 h-5 text-indigo-500" aria-hidden />
+              </div>
+              <h2 className="font-semibold text-slate-700 mb-1">Ready to listen</h2>
+              <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
+                Share whatever is on your mind. I&apos;m here to support you
+                without judgment.
+              </p>
             </div>
-            <h2 className="font-semibold text-slate-700 mb-1">
-              Ready to listen
-            </h2>
-            <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-              Share whatever is on your mind. I&apos;m here to support you
-              without judgment.
-            </p>
           </div>
         )}
 

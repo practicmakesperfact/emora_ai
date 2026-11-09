@@ -362,6 +362,25 @@ class ChatService:
             is_limit_reached=user_msg_count >= max_msgs or age_minutes >= max_minutes,
         )
 
+    async def get_daily_usage(self, user_id: int) -> "DailyUsageOut":
+        """
+        Return how many messages the user has sent today (UTC) across all
+        conversations. Used by the frontend chat-list page as a soft
+        transparency indicator — it is NOT enforced server-side.
+        """
+        from app.schemas.chat import DailyUsageOut
+
+        daily_limit = settings.SESSION_DAILY_SOFT_LIMIT
+        messages_today = await self._repo.count_user_messages_today(user_id)
+        pct = min(100.0, round((messages_today / daily_limit) * 100, 1))
+
+        return DailyUsageOut(
+            messages_today=messages_today,
+            daily_soft_limit=daily_limit,
+            usage_percent=pct,
+            is_approaching_limit=pct >= 80.0,
+        )
+
     # ─── Conversation Summary ──────────────────────────────────────────────────
 
     async def summarize_conversation(

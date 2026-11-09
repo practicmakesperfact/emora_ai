@@ -66,3 +66,15 @@ class SessionStatusOut(BaseModel):
     is_message_limit_reached: bool
     is_duration_limit_reached: bool
     is_limit_reached: bool
+
+
+class DailyUsageOut(BaseModel):
+    """
+    Returned by GET /chat/daily-usage.
+    Shows how many messages the user has sent today across all conversations.
+    Used by the frontend to display a soft transparency indicator.
+    """
+    messages_today: int
+    daily_soft_limit: int          # Informational — not enforced server-side
+    usage_percent: float           # 0.0 – 100.0
+    is_approaching_limit: bool     # True when > 80 % used
