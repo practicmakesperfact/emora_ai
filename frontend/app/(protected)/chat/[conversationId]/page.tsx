@@ -20,7 +20,6 @@ import {
   ExternalLink,
   Sparkles,
   User,
-  PhoneCall,
 } from 'lucide-react';
 import Link from 'next/link';
 import { chatApi } from '@/lib/api/chat.api';
@@ -303,15 +302,6 @@ export default function ConversationPage({ params }: Props) {
           </div>
         )}
 
-        {/* Persistent "Get help now" — always visible in the chat header (Step 3) */}
-        <Link
-          href={ROUTES.SUPPORT}
-          className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 text-xs font-semibold hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 transition-colors min-h-[36px]"
-          aria-label="Get help now — crisis support"
-        >
-          <PhoneCall className="w-3.5 h-3.5 shrink-0" aria-hidden />
-          <span className="hidden sm:inline">Get help now</span>
-        </Link>
       </div>
 
       {/* Mock crisis card — triggered by ?crisis=mock URL param (dev/demo only) */}

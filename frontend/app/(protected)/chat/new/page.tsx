@@ -8,7 +8,7 @@
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Send, Sparkles, Info, PhoneCall } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, Info } from 'lucide-react';
 import Link from 'next/link';
 import { chatApi } from '@/lib/api/chat.api';
 import { Button } from '@/components/common/Button';
@@ -101,17 +101,7 @@ export default function NewChatPage() {
             <p className="text-xs text-slate-400">AI Support Assistant</p>
           </div>
         </div>
-        <Link
-          href={ROUTES.SUPPORT}
-          className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 text-xs font-semibold hover:bg-rose-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 transition-colors min-h-[36px]"
-          aria-label="Get help now — crisis support"
-        >
-          <PhoneCall className="w-3.5 h-3.5 shrink-0" aria-hidden />
-          <span className="hidden sm:inline">Get help now</span>
-        </Link>
       </div>
-
-      {/* Empty state with AIDisclosureCard + quick chips */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="flex flex-col items-center justify-center h-full px-4 py-6 gap-5">
           <AIDisclosureCard />
