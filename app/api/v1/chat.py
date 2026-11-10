@@ -28,6 +28,7 @@ from app.models.user import User
 from app.schemas.chat import (
     ConversationCreate,
     ConversationOut,
+    ConversationRename,
     ConversationSearchResponse,
     ConversationSummaryResponse,
     DailyUsageOut,
@@ -130,6 +131,36 @@ async def delete_conversation(
     await service.delete_conversation(
         conversation_id=conversation_id, user_id=current_user.id
     )
+
+
+# ─── Rename Conversation ───────────────────────────────────────────────────────
+
+@router.patch(
+    "/{conversation_id}/rename",
+    response_model=ConversationOut,
+    status_code=status.HTTP_200_OK,
+    summary="Rename a conversation",
+    description="Updates the title of a conversation owned by the authenticated user.",
+)
+async def rename_conversation(
+    conversation_id: int,
+    payload: ConversationRename,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> ConversationOut:
+    """Rename a conversation title."""
+    service = ChatService(db)
+    conversation = await service.rename_conversation(
+        conversation_id=conversation_id,
+        user_id=current_user.id,
+        new_title=payload.title,
+    )
+    logger.info(
+        "Conversation renamed via API",
+        user_id=current_user.id,
+        conversation_id=conversation_id,
+    )
+    return conversation
 
 
 # ─── Get Message History ───────────────────────────────────────────────────────

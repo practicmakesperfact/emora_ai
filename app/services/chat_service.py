@@ -122,6 +122,31 @@ class ChatService:
             raise AuthorizationException("You do not have access to this conversation.")
         return conversation
 
+    async def rename_conversation(
+        self, conversation_id: int, user_id: int, new_title: str
+    ) -> Conversation:
+        """
+        Rename a conversation title.
+
+        Args:
+            conversation_id: Primary key of the conversation.
+            user_id: ID of the currently authenticated user.
+            new_title: New title string (max 100 chars, already validated by schema).
+
+        Returns:
+            The updated Conversation ORM instance.
+        """
+        conversation = await self.get_conversation(conversation_id, user_id)
+        conversation = await self._repo.update_conversation(
+            conversation, title=new_title.strip()
+        )
+        logger.info(
+            "Conversation renamed",
+            conversation_id=conversation_id,
+            new_title=new_title,
+        )
+        return conversation
+
     async def delete_conversation(
         self, conversation_id: int, user_id: int
     ) -> None:
@@ -206,6 +231,13 @@ class ChatService:
             role="user",
             content=user_message,
         )
+
+        # 3b — Auto-title: if still "New Conversation", derive title from first message
+        if conversation.title in ("New Conversation", "", None):
+            auto_title = user_message.strip()[:40]
+            if len(user_message.strip()) > 40:
+                auto_title += "…"
+            await self._repo.update_conversation(conversation, title=auto_title)
 
         logger.info(
             "Running agentic workflow",

@@ -21,6 +21,10 @@ class MessageOut(BaseModel):
 class ConversationCreate(BaseModel):
     title: Optional[str] = Field(default="New Conversation", max_length=200)
 
+class ConversationRename(BaseModel):
+    """Body for PATCH /chat/{id}/rename"""
+    title: str = Field(..., min_length=1, max_length=100)
+
 class ConversationUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=200)
     summary: Optional[str] = None

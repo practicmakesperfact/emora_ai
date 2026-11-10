@@ -33,7 +33,7 @@ import { ConsentScreen, hasConsented } from '@/components/chat/ConsentScreen';
 import { useSSEStream } from '@/hooks/useSSEStream';
 import { formatTime, cn } from '@/utils';
 import { ROUTES, CHAT_PLACEHOLDER, PRIVACY_NOTICE } from '@/constants';
-import type { Message, SessionStatus } from '@/types';
+import type { Message, SessionStatus, Conversation } from '@/types';
 
 interface Props {
   params: Promise<{ conversationId: string }>;
@@ -76,6 +76,18 @@ export default function ConversationPage({ params }: Props) {
     queryFn: () => chatApi.getMessages(conversationId),
     enabled: !isNaN(conversationId),
   });
+
+  // Fetch conversation list to get the current title
+  const { data: conversations } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: () => chatApi.listConversations({ limit: 100 }),
+    enabled: !isNaN(conversationId),
+  });
+  const conversationTitle = (() => {
+    const conv = conversations?.find((c) => c.id === conversationId);
+    if (!conv || conv.title === 'New Conversation') return null;
+    return conv.title;
+  })();
 
   // Poll session status every 30 s (also refetched after each message send)
   const { data: sessionStatus } = useQuery<SessionStatus>({
@@ -159,9 +171,48 @@ export default function ConversationPage({ params }: Props) {
     onSessionLimit: handleSessionLimit,
   });
 
+  // ── Prefill from /chat/new redirect (?prefill=…) — send on first render ───
+  const prefillSentRef = useRef(false);
+  useEffect(() => {
+    const prefill = searchParams.get('prefill');
+    if (prefill && !prefillSentRef.current && !isNaN(conversationId)) {
+      prefillSentRef.current = true;
+      const content = decodeURIComponent(prefill);
+      // Optimistically add user message then stream
+      const optimisticMsg: Message = {
+        id: Date.now(),
+        conversation_id: conversationId,
+        role: 'user',
+        content,
+        is_crisis_triggered: false,
+        created_at: new Date().toISOString(),
+      };
+      setMessages([optimisticMsg]);
+      startStream(conversationId, content);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
+
   // Determine if input should be blocked
   const isSessionBlocked =
     Boolean(sessionLimitMessage) || Boolean(sessionStatus?.is_limit_reached);
+
+  // Send a quick-start chip as a message
+  async function sendChip(text: string) {
+    if (isStreaming || isSessionBlocked) return;
+    setStreamError(null);
+    setStreamedContent('');
+    const optimisticMsg: Message = {
+      id: Date.now(),
+      conversation_id: conversationId,
+      role: 'user',
+      content: text,
+      is_crisis_triggered: false,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimisticMsg]);
+    await startStream(conversationId, text);
+  }
 
   async function sendMessage() {
     const content = input.trim();
@@ -225,7 +276,7 @@ export default function ConversationPage({ params }: Props) {
         </Link>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">
-            Conversation #{conversationId}
+            {conversationTitle ?? `Conversation #${conversationId}`}
           </p>
           <div className="flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-indigo-400" aria-hidden />
@@ -233,18 +284,22 @@ export default function ConversationPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Session message counter pill (shown when messages remain is low) */}
+        {/* Session message counter pill — "N messages left today", amber at ≤ 5 */}
         {sessionStatus && !sessionStatus.is_limit_reached && (
           <div
             className={cn(
               'shrink-0 text-xs px-2 py-1 rounded-full font-medium',
-              sessionStatus.messages_remaining <= 10
-                ? 'bg-amber-100 text-amber-700'
+              sessionStatus.messages_remaining <= 5
+                ? 'bg-amber-100 text-amber-700 font-semibold'
+                : sessionStatus.messages_remaining <= 10
+                ? 'bg-amber-50 text-amber-600'
                 : 'bg-slate-100 text-slate-500'
             )}
             title={`${sessionStatus.messages_remaining} messages remaining in this session`}
+            role={sessionStatus.messages_remaining <= 5 ? 'alert' : undefined}
           >
-            {sessionStatus.messages_remaining} left
+            {sessionStatus.messages_remaining <= 5 && '⚠ '}
+            {sessionStatus.messages_remaining} messages left today
           </div>
         )}
 
@@ -291,7 +346,7 @@ export default function ConversationPage({ params }: Props) {
         aria-live="polite"
       >
         {messages.length === 0 && !isStreaming && (
-          <div className="flex flex-col items-center justify-center h-full px-4 py-6 gap-4">
+          <div className="flex flex-col items-center justify-center h-full px-4 py-6 gap-5">
             {/* AI Transparency Disclosure — req.md §Transparency & Limits */}
             <AIDisclosureCard />
 
@@ -306,6 +361,26 @@ export default function ConversationPage({ params }: Props) {
                 without judgment.
               </p>
             </div>
+
+            {/* Quick-start chips */}
+            <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+              {(['I feel anxious', "I can't sleep", 'Help me breathe', 'I just need to vent'] as const).map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => sendChip(chip)}
+                  disabled={isStreaming || isSessionBlocked}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-sm border border-indigo-100 bg-indigo-50 text-indigo-600',
+                    'hover:bg-indigo-100 hover:border-indigo-200 transition-colors',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400',
+                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                  )}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -319,9 +394,9 @@ export default function ConversationPage({ params }: Props) {
             <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4 text-white" aria-hidden />
             </div>
-            <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] shadow-sm">
+            <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[70%] lg:max-w-[680px] shadow-sm">
               {streamedContent ? (
-                <div className="prose-calm text-sm">
+                <div className={cn('prose-calm text-sm', /[\u1200-\u137F]/.test(streamedContent) && 'lang-am')}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {streamedContent}
                   </ReactMarkdown>
@@ -461,6 +536,9 @@ function MessageBubble({ message }: { message: Message }) {
     | { sources?: Array<{ title?: string; source?: string }> }
     | null;
 
+  // Detect Amharic content to apply correct font and line-height
+  const hasAmharic = /[\u1200-\u137F]/.test(message.content);
+
   return (
     <div
       className={cn('flex gap-3 items-start', isUser && 'flex-row-reverse')}
@@ -488,7 +566,7 @@ function MessageBubble({ message }: { message: Message }) {
         )}
       </div>
 
-      <div className={cn('flex flex-col max-w-[80%]', isUser && 'items-end')}>
+      <div className={cn('flex flex-col max-w-[70%] lg:max-w-[680px]', isUser && 'items-end')}>
         {/* Bubble */}
         <div
           className={cn(
@@ -501,9 +579,11 @@ function MessageBubble({ message }: { message: Message }) {
           {isUser ? (
             <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
           ) : (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.content}
-            </ReactMarkdown>
+            <div className={hasAmharic ? 'lang-am' : undefined}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.content}
+              </ReactMarkdown>
+            </div>
           )}
         </div>
 

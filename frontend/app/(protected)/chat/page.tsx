@@ -1,18 +1,19 @@
 // ============================================================
 // Emora AI — Chat Page (/chat)
-// Conversation list + new conversation
+// Step 7: "New Chat" goes to /chat/new (no DB creation until first message).
+//         Inline rename. Title shown instead of "Conversation #N".
+//         Delete with confirmation. Empty state.
 // ============================================================
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MessageCircle, Plus, Search, Trash2, Clock, Activity } from 'lucide-react';
+import { MessageCircle, Plus, Search, Trash2, Clock, Activity, Pencil, Check, X } from 'lucide-react';
 import { chatApi } from '@/lib/api/chat.api';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import { Card } from '@/components/common/Card';
 import { EmptyState, LoadingPage, ErrorMessage } from '@/components/common/Feedback';
 import { Modal } from '@/components/common/Modal';
 import { formatRelativeTime, getErrorMessage, truncate } from '@/utils';
@@ -39,24 +40,22 @@ export default function ChatPage() {
   const { data: dailyUsage } = useQuery<DailyUsage>({
     queryKey: ['daily-usage'],
     queryFn: () => chatApi.getDailyUsage(),
-    // Refresh every 60 seconds while user is on this page
     refetchInterval: 60_000,
-    // Don't block the page load — it's informational only
     retry: false,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: () => chatApi.createConversation({ title: 'New Conversation' }),
-    onSuccess: (conv) => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      router.push(`/chat/${conv.id}`);
-    },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => chatApi.deleteConversation(id),
     onSuccess: () => {
       setDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ id, title }: { id: number; title: string }) =>
+      chatApi.renameConversation(id, title),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
   });
@@ -87,19 +86,17 @@ export default function ChatPage() {
               {conversations?.length || 0} conversation{conversations?.length !== 1 ? 's' : ''}
             </p>
           </div>
+          {/* New Chat — navigates to /chat/new WITHOUT creating in DB */}
           <Button
-            onClick={() => createMutation.mutate()}
-            isLoading={createMutation.isPending}
+            onClick={() => router.push('/chat/new')}
             leftIcon={<Plus className="w-4 h-4" />}
           >
             New Chat
           </Button>
         </div>
 
-        {/* Daily Usage Bar — shown only when data is available */}
-        {dailyUsage && (
-          <DailyUsageBar usage={dailyUsage} />
-        )}
+        {/* Daily Usage Bar */}
+        {dailyUsage && <DailyUsageBar usage={dailyUsage} />}
       </div>
 
       {/* Search */}
@@ -118,12 +115,6 @@ export default function ChatPage() {
       {/* List */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <div className="max-w-3xl mx-auto">
-          {createMutation.error && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 text-rose-700 text-sm border border-rose-100">
-              {getApiErrorMessage(createMutation.error)}
-            </div>
-          )}
-
           {!filtered || filtered.length === 0 ? (
             <EmptyState
               title="No conversations yet"
@@ -131,8 +122,7 @@ export default function ChatPage() {
               icon={<MessageCircle className="w-12 h-12" />}
               action={
                 <Button
-                  onClick={() => createMutation.mutate()}
-                  isLoading={createMutation.isPending}
+                  onClick={() => router.push('/chat/new')}
                   leftIcon={<Plus className="w-4 h-4" />}
                 >
                   Start a Conversation
@@ -147,6 +137,8 @@ export default function ChatPage() {
                     conversation={conv}
                     onOpen={() => router.push(`/chat/${conv.id}`)}
                     onDelete={() => setDeleteId(conv.id)}
+                    onRename={(newTitle) => renameMutation.mutate({ id: conv.id, title: newTitle })}
+                    isRenaming={renameMutation.isPending}
                   />
                 </li>
               ))}
@@ -193,16 +185,10 @@ export default function ChatPage() {
 }
 
 // ─── Daily Usage Bar ─────────────────────────────────────────────────────────
-/**
- * Shows a soft daily message limit bar in the header.
- * Turns amber when usage_percent > 80% to give the user a gentle heads-up.
- * This is informational only — the backend does NOT hard-enforce this limit.
- */
 function DailyUsageBar({ usage }: { usage: DailyUsage }) {
   const pct = Math.min(usage.usage_percent, 100);
   const isHigh = usage.is_approaching_limit;
 
-  // Color palette — calm, non-alarming
   const barColor = isHigh ? 'bg-amber-400' : 'bg-indigo-400';
   const textColor = isHigh ? 'text-amber-700' : 'text-slate-500';
   const bgTrack = isHigh ? 'bg-amber-100' : 'bg-slate-100';
@@ -226,7 +212,6 @@ function DailyUsageBar({ usage }: { usage: DailyUsage }) {
           {usage.messages_today} / {usage.daily_soft_limit} messages
         </span>
       </div>
-      {/* Progress track */}
       <div className={`h-1.5 rounded-full overflow-hidden ${bgTrack}`} aria-hidden>
         <div
           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
@@ -242,46 +227,120 @@ function ConversationItem({
   conversation,
   onOpen,
   onDelete,
+  onRename,
+  isRenaming,
 }: {
   conversation: Conversation;
   onOpen: () => void;
   onDelete: () => void;
+  onRename: (title: string) => void;
+  isRenaming: boolean;
 }) {
-  return (
-    <div className="group flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-4 hover:shadow-sm transition-all">
-      <button
-        onClick={onOpen}
-        className="flex items-center gap-3 flex-1 min-w-0 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-xl"
-        aria-label={`Open conversation: ${conversation.title}`}
-      >
-        <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-          <MessageCircle className="w-4 h-4 text-indigo-500" aria-hidden />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm text-slate-800 truncate">
-            {conversation.title}
-          </p>
-          {conversation.summary ? (
-            <p className="text-xs text-slate-400 truncate">
-              {truncate(conversation.summary, 60)}
-            </p>
-          ) : (
-            <p className="text-xs text-slate-300 italic">No summary yet</p>
-          )}
-        </div>
-        <div className="flex items-center gap-1 text-slate-300 shrink-0">
-          <Clock className="w-3 h-3" aria-hidden />
-          <span className="text-xs">{formatRelativeTime(conversation.updated_at)}</span>
-        </div>
-      </button>
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(conversation.title);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-      <button
-        onClick={onDelete}
-        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
-        aria-label={`Delete conversation: ${conversation.title}`}
-      >
-        <Trash2 className="w-4 h-4" aria-hidden />
-      </button>
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  function commitRename() {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== conversation.title) {
+      onRename(trimmed);
+    }
+    setEditing(false);
+  }
+
+  function cancelRename() {
+    setDraft(conversation.title);
+    setEditing(false);
+  }
+
+  // Show a friendly title — never raw "New Conversation"
+  const displayTitle =
+    conversation.title === 'New Conversation' ? 'Untitled conversation' : conversation.title;
+
+  return (
+    <div className="group flex items-center gap-2 rounded-2xl border border-slate-100 bg-white p-4 hover:shadow-sm transition-all">
+      {/* Icon */}
+      <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+        <MessageCircle className="w-4 h-4 text-indigo-500" aria-hidden />
+      </div>
+
+      {/* Title + summary — editable inline */}
+      <div className="flex-1 min-w-0">
+        {editing ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename();
+                if (e.key === 'Escape') cancelRename();
+              }}
+              maxLength={100}
+              className="flex-1 min-w-0 text-sm font-medium text-slate-800 border-b border-indigo-400 focus:outline-none bg-transparent py-0.5"
+              aria-label="Rename conversation"
+            />
+            <button
+              onClick={commitRename}
+              disabled={isRenaming}
+              className="text-emerald-500 hover:text-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded"
+              aria-label="Save rename"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+            <button
+              onClick={cancelRename}
+              className="text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 rounded"
+              aria-label="Cancel rename"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onOpen}
+            className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg"
+            aria-label={`Open conversation: ${displayTitle}`}
+          >
+            <p className="font-medium text-sm text-slate-800 truncate">{displayTitle}</p>
+            {conversation.summary ? (
+              <p className="text-xs text-slate-400 truncate">{truncate(conversation.summary, 60)}</p>
+            ) : (
+              <p className="text-xs text-slate-300 italic">No messages yet</p>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Timestamp */}
+      <div className="flex items-center gap-1 text-slate-300 shrink-0">
+        <Clock className="w-3 h-3" aria-hidden />
+        <span className="text-xs">{formatRelativeTime(conversation.updated_at)}</span>
+      </div>
+
+      {/* Actions — rename + delete, fade in on hover */}
+      {!editing && (
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+          <button
+            onClick={() => { setDraft(conversation.title); setEditing(true); }}
+            className="p-1.5 rounded-lg text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+            aria-label={`Rename conversation: ${displayTitle}`}
+          >
+            <Pencil className="w-4 h-4" aria-hidden />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            aria-label={`Delete conversation: ${displayTitle}`}
+          >
+            <Trash2 className="w-4 h-4" aria-hidden />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

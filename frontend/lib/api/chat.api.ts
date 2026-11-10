@@ -41,6 +41,12 @@ export const chatApi = {
     await apiClient.delete(`/chat/${conversationId}`);
   },
 
+  /** PATCH /chat/{id}/rename — Rename a conversation */
+  renameConversation: async (conversationId: number, title: string): Promise<Conversation> => {
+    const res = await apiClient.patch<Conversation>(`/chat/${conversationId}/rename`, { title });
+    return res.data;
+  },
+
   /** GET /chat/{id}/messages — Get message history */
   getMessages: async (
     conversationId: number,
