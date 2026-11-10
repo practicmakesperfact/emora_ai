@@ -69,17 +69,18 @@ export function getMoodEmoji(score: number): string {
 }
 
 export function getMoodColor(score: number): string {
-  if (score <= 3) return 'text-rose-500';
-  if (score <= 5) return 'text-amber-500';
-  if (score <= 7) return 'text-indigo-500';
-  return 'text-emerald-500';
+  // Soft, non-judgmental palette — no alarming red or celebratory green
+  if (score <= 3) return 'text-slate-500';
+  if (score <= 5) return 'text-indigo-400';
+  if (score <= 7) return 'text-indigo-600';
+  return 'text-indigo-700';
 }
 
 export function getMoodBgColor(score: number): string {
-  if (score <= 3) return 'bg-rose-50 border-rose-100';
-  if (score <= 5) return 'bg-amber-50 border-amber-100';
-  if (score <= 7) return 'bg-indigo-50 border-indigo-100';
-  return 'bg-emerald-50 border-emerald-100';
+  if (score <= 3) return 'bg-slate-50 border-slate-200';
+  if (score <= 5) return 'bg-indigo-50 border-indigo-100';
+  if (score <= 7) return 'bg-indigo-50 border-indigo-200';
+  return 'bg-indigo-50 border-indigo-300';
 }
 
 // ─── Crisis Helpers ───────────────────────────────────────────────────────

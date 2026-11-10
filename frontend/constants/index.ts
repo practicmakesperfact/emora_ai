@@ -31,6 +31,7 @@ export const ROUTES = {
   ADMIN_DOCUMENTS: '/admin/documents',
   ADMIN_KNOWLEDGE_BASE: '/admin/knowledge-base',
   ADMIN_USERS: '/admin/users',
+  EXERCISE: '/exercise',
 } as const;
 
 // ─── Role Names ───────────────────────────────────────────────────────────
