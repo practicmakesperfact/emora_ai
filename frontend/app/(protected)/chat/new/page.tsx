@@ -137,7 +137,7 @@ export default function NewChatPage() {
                   'px-3 py-1.5 rounded-full text-sm border border-indigo-100 bg-indigo-50 text-indigo-600',
                   'hover:bg-indigo-100 hover:border-indigo-200 transition-colors',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400',
-                  'disabled:opacity-50 disabled:cursor-not-allowed'
+                  'disabled:opacity-60 disabled:cursor-not-allowed'
                 )}
               >
                 {chip}
@@ -211,7 +211,7 @@ export default function NewChatPage() {
             Send
           </Button>
         </div>
-        <p className="text-center text-xs text-slate-300 mt-2">
+        <p className="text-center text-xs text-slate-400 mt-2">
           Press Enter to send · Shift+Enter for new line
         </p>
       </div>

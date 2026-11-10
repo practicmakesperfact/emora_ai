@@ -518,7 +518,7 @@ export default function ConversationPage({ params }: Props) {
             )}
           </div>
         )}
-        <p className="text-center text-xs text-slate-300 mt-2">
+        <p className="text-center text-xs text-slate-400 mt-2">
           {isSessionBlocked
             ? 'Session ended · Start a new conversation above'
             : 'Press Enter to send · Shift+Enter for new line'}
@@ -591,7 +591,7 @@ function MessageBubble({ message }: { message: Message }) {
         <div className={cn('flex items-center gap-2 mt-1', isUser && 'flex-row-reverse')}>
           <time
             dateTime={message.created_at}
-            className="text-xs text-slate-400"
+            className="text-xs text-slate-500"
           >
             {formatTime(message.created_at)}
           </time>

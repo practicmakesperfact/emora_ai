@@ -172,7 +172,7 @@ export default function ExercisePage() {
           {running ? (
             <>
               <p className="text-sm text-slate-600">{phase.hint}</p>
-              <p className="text-xs text-slate-400 mt-0.5 lang-am">{phase.amLabel}</p>
+              <p className="text-xs text-slate-500 mt-0.5 lang-am">{phase.amLabel}</p>
             </>
           ) : (
             <p className="text-sm text-slate-400">
@@ -203,7 +203,7 @@ export default function ExercisePage() {
           <Button
             onClick={startExercise}
             leftIcon={<Wind className="w-4 h-4" />}
-            className="px-8"
+            className="px-8 min-h-[44px]"
           >
             Start
           </Button>
@@ -211,7 +211,7 @@ export default function ExercisePage() {
           <Button
             onClick={stopExercise}
             variant="outline"
-            className="px-8"
+            className="px-8 min-h-[44px]"
           >
             Stop
           </Button>
