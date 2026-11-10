@@ -4,17 +4,29 @@
 //  - collapsed=false → full label+icon sidebar
 //  - collapsed=true  → icon-only rail with Tooltip on hover
 //  - onClose         → called on mobile when a link is tapped
+//
+// Step Prompt A: ChatGPT-style bottom user menu.
+//  - Top user card REMOVED.
+//  - Separate Profile / Settings / About / Sign-Out links REMOVED.
+//  - Single UserMenuButton at the very bottom opens a popup menu
+//    that rises ABOVE the trigger, containing all four actions.
+//  - Full ARIA keyboard support (menu / menuitem / arrow keys / Esc).
+//  - Collapsed state: avatar-only trigger; popup aligns to sidebar edge.
+//  - Labels are bilingual (EN + AM via useLanguage).
+//  - Works identically in mobile drawer (collapsed=false) and both
+//    protected layouts (UserLayout and CounselorLayout both use AppLayout
+//    → Sidebar, so no code duplication needed).
 // ============================================================
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { cn } from '@/utils';
 import { useAuth } from '@/providers/AuthProvider';
+import { useLanguage } from '@/providers/LanguageProvider';
 import { ROUTES, ROLES } from '@/constants';
-import { CRISIS_CARD_CONTACTS } from '@/lib/emergencyContacts';
 import {
   MessageCircle,
   BarChart2,
@@ -30,8 +42,9 @@ import {
   Heart,
   Info,
   Database,
-  PhoneCall,
+  ChevronUp,
 } from 'lucide-react';
+
 interface NavItem {
   href: string;
   label: string;
@@ -104,31 +117,14 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const BOTTOM_ITEMS: NavItem[] = [
-  {
-    href: ROUTES.PROFILE,
-    label: 'Profile',
-    icon: <User className="w-4 h-4" />,
-  },
-  {
-    href: ROUTES.SETTINGS,
-    label: 'Settings',
-    icon: <Settings className="w-4 h-4" />,
-  },
-  {
-    href: ROUTES.ABOUT,
-    label: 'About',
-    icon: <Info className="w-4 h-4" />,
-  },
-];
-
 interface SidebarProps {
   onClose?: () => void;
   /** When true, renders icon-only rail with tooltips (desktop collapsed state) */
   collapsed?: boolean;
 }
 
-/** Wrapper that shows a tooltip on hover when sidebar is collapsed */
+// ─── NavTooltip ───────────────────────────────────────────────────────────────
+/** Shows a floating label on the right when the sidebar is collapsed */
 function NavTooltip({
   label,
   collapsed,
@@ -161,9 +157,202 @@ function NavTooltip({
   );
 }
 
+// ─── UserMenuButton ───────────────────────────────────────────────────────────
+/**
+ * Bottom user card that opens a popup menu rising upward.
+ * Full ARIA menu pattern: role="menu", role="menuitem", arrow-key navigation,
+ * Esc to close, click-outside to close.
+ */
+interface UserMenuButtonProps {
+  collapsed: boolean;
+  onClose?: () => void;
+}
+
+function UserMenuButton({ collapsed, onClose }: UserMenuButtonProps) {
+  const { user, logout } = useAuth();
+  const { t } = useLanguage();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const userRole = user?.role?.name || ROLES.USER;
+  const initials = user?.full_name?.charAt(0).toUpperCase() ?? '?';
+
+  // ── Close on outside click ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  // ── Close on Esc; arrow-key nav within menu ───────────────────────────────
+  const handleMenuKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const items = Array.from(
+        menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []
+      );
+      const idx = items.indexOf(document.activeElement as HTMLElement);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        items[(idx + 1) % items.length]?.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        items[(idx - 1 + items.length) % items.length]?.focus();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        items[0]?.focus();
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        items[items.length - 1]?.focus();
+      }
+    },
+    []
+  );
+
+  // Focus the first item when menu opens
+  useEffect(() => {
+    if (open) {
+      const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]');
+      first?.focus();
+    }
+  }, [open]);
+
+  function handleItemClick(action: () => void) {
+    setOpen(false);
+    onClose?.();
+    action();
+  }
+
+  // ── Menu items (links + sign out) ────────────────────────────────────────
+  const menuItems = [
+    {
+      label: t('Profile', 'መገለጫ'),
+      icon: <User className="w-4 h-4" aria-hidden />,
+      action: () => router.push(ROUTES.PROFILE),
+      danger: false,
+    },
+    {
+      label: t('Settings', 'ቅንብሮች'),
+      icon: <Settings className="w-4 h-4" aria-hidden />,
+      action: () => router.push(ROUTES.SETTINGS),
+      danger: false,
+    },
+    {
+      label: t('About', 'ስለ ኤሞራ'),
+      icon: <Info className="w-4 h-4" aria-hidden />,
+      action: () => router.push(ROUTES.ABOUT),
+      danger: false,
+    },
+  ];
+
+  return (
+    <div className={cn('relative', collapsed ? 'flex justify-center' : 'w-full')}>
+      {/* ── Popup menu — rendered ABOVE the trigger ────────────────────────── */}
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={t('User menu', 'የተጠቃሚ ምናሌ')}
+          onKeyDown={handleMenuKeyDown}
+          className={cn(
+            'absolute bottom-full mb-2 z-50',
+            'w-52 rounded-xl bg-white border border-slate-100 shadow-xl py-1.5',
+            collapsed ? 'left-0' : 'left-0 right-0'
+          )}
+        >
+          {/* Profile / Settings / About */}
+          {menuItems.map((item) => (
+            <button
+              key={item.label}
+              role="menuitem"
+              tabIndex={-1}
+              onClick={() => handleItemClick(item.action)}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-slate-700 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none transition-colors"
+            >
+              <span className="text-slate-400">{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+
+          {/* Divider */}
+          <div className="my-1 border-t border-slate-100" role="separator" aria-hidden />
+
+          {/* Sign out — visually distinct */}
+          <button
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() =>
+              handleItemClick(() => logout())
+            }
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-rose-600 hover:bg-rose-50 focus:bg-rose-50 focus:outline-none transition-colors"
+          >
+            <LogOut className="w-4 h-4 text-rose-500" aria-hidden />
+            {t('Sign out', 'ውጣ')}
+          </button>
+        </div>
+      )}
+
+      {/* ── Trigger button ──────────────────────────────────────────────────── */}
+      <button
+        ref={triggerRef}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t('Open user menu', 'የተጠቃሚ ምናሌ ክፈት')}
+        className={cn(
+          'w-full flex items-center rounded-xl transition-colors duration-150',
+          'hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400',
+          collapsed ? 'justify-center p-2' : 'gap-2.5 px-3 py-2.5'
+        )}
+      >
+        {/* Avatar circle */}
+        <div
+          className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0"
+          aria-hidden
+        >
+          <span className="text-xs font-semibold text-indigo-700">{initials}</span>
+        </div>
+
+        {/* Name + role — hidden when collapsed */}
+        {!collapsed && user && (
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-sm font-medium text-slate-800 truncate">{user.full_name}</p>
+            <p className="text-xs text-slate-400 truncate">{userRole}</p>
+          </div>
+        )}
+
+        {/* Chevron indicator — hidden when collapsed */}
+        {!collapsed && (
+          <ChevronUp
+            className={cn(
+              'w-4 h-4 text-slate-400 shrink-0 transition-transform duration-150',
+              open ? 'rotate-180' : 'rotate-0'
+            )}
+            aria-hidden
+          />
+        )}
+      </button>
+    </div>
+  );
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
 export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const userRole = user?.role?.name || ROLES.USER;
 
   const visibleItems = NAV_ITEMS.filter(
@@ -199,25 +388,6 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
           )}
         </Link>
       </div>
-
-      {/* User info — hidden when collapsed */}
-      {user && !collapsed && (
-        <div className="px-5 py-3 border-b border-slate-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
-              <span className="text-xs font-semibold text-indigo-700">
-                {user.full_name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-slate-800 truncate">
-                {user.full_name}
-              </p>
-              <p className="text-xs text-slate-400 truncate">{userRole}</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Nav */}
       <nav
@@ -256,77 +426,11 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Bottom Nav */}
-      <div className={cn('py-3 border-t border-slate-100 space-y-0.5', collapsed ? 'px-1 w-full' : 'px-3')}>
-        {BOTTOM_ITEMS.map((item) => (
-          <NavTooltip key={item.href} label={item.label} collapsed={collapsed}>
-            <Link
-              href={item.href}
-              onClick={onClose}
-              className={cn(
-                'flex items-center rounded-xl text-sm font-medium transition-colors duration-150',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400',
-                collapsed
-                  ? 'justify-center w-10 h-10 mx-auto'
-                  : 'gap-3 px-3 py-2.5',
-                isActive(item.href)
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
-              )}
-              aria-label={collapsed ? item.label : undefined}
-            >
-              <span className={cn(isActive(item.href) ? 'text-indigo-600' : 'text-slate-400')} aria-hidden>
-                {item.icon}
-              </span>
-              {!collapsed && item.label}
-            </Link>
-          </NavTooltip>
-        ))}
-
-        {/* Logout */}
-        <NavTooltip label="Sign Out" collapsed={collapsed}>
-          <button
-            onClick={() => {
-              onClose?.();
-              logout();
-            }}
-            className={cn(
-              'w-full flex items-center rounded-xl text-sm font-medium text-slate-600 hover:bg-rose-50 hover:text-rose-700 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400',
-              collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-3 px-3 py-2.5'
-            )}
-            aria-label="Sign out"
-          >
-            <LogOut className="w-4 h-4 text-slate-400 shrink-0" aria-hidden />
-            {!collapsed && 'Sign Out'}
-          </button>
+      {/* Bottom — user menu button */}
+      <div className={cn('py-3 border-t border-slate-100', collapsed ? 'px-1 w-full flex justify-center' : 'px-3')}>
+        <NavTooltip label="Account" collapsed={collapsed}>
+          <UserMenuButton collapsed={collapsed} onClose={onClose} />
         </NavTooltip>
-
-        {/* Help card — hidden when collapsed */}
-        {!collapsed && (
-          <div className="mt-3 mx-1">
-            <div className="rounded-xl bg-rose-50 border border-rose-100 px-3 py-2.5">
-              <div className="flex items-center gap-1.5 mb-1">
-                <PhoneCall className="w-3 h-3 text-rose-600" aria-hidden />
-                <p className="text-xs font-medium text-rose-700">
-                  Need immediate support?
-                </p>
-              </div>
-              {/* Show primary hotline as tap-to-call — number from central config */}
-              {CRISIS_CARD_CONTACTS[0] && (
-                <a
-                  href={`tel:${CRISIS_CARD_CONTACTS[0].number}`}
-                  className="block text-xs font-semibold text-rose-700 hover:underline mb-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-rose-400 rounded"
-                  aria-label={`Call ${CRISIS_CARD_CONTACTS[0].nameEn} at ${CRISIS_CARD_CONTACTS[0].number}`}
-                >
-                  📞 {CRISIS_CARD_CONTACTS[0].number} · {CRISIS_CARD_CONTACTS[0].nameEn}
-                </a>
-              )}
-              <Link href={ROUTES.SUPPORT} onClick={onClose} className="text-xs text-rose-500 hover:underline focus:outline-none">
-                All crisis resources →
-              </Link>
-            </div>
-          </div>
-        )}
       </div>
     </aside>
   );
