@@ -1,5 +1,7 @@
 // ============================================================
 // Emora AI — Settings Page (/settings)
+// Step 11: Added "Export my data" + "Delete my account" sections
+//          at the bottom of the Privacy & Data card.
 // ============================================================
 
 'use client';
@@ -9,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Globe, MapPin, Shield, Eye, HelpCircle } from 'lucide-react';
+import { Globe, MapPin, Shield, Eye, HelpCircle, Download, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usersApi } from '@/lib/api/users.api';
 import { Button } from '@/components/common/Button';
@@ -27,11 +29,20 @@ const settingsSchema = z.object({
 type SettingsFormData = z.infer<typeof settingsSchema>;
 
 export default function SettingsPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const queryClient = useQueryClient();
   const [apiError, setApiError] = useState<string | null>(null);
   const [apiSuccess, setApiSuccess] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  // ── Export state ──────────────────────────────────────────────────────────
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState(false);
+
+  // ── Delete account state ──────────────────────────────────────────────────
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -69,6 +80,35 @@ export default function SettingsPage() {
     onError: (err) => setApiError(getErrorMessage(err)),
   });
 
+  // ── Export mutation ───────────────────────────────────────────────────────
+  const exportMutation = useMutation({
+    mutationFn: () => usersApi.exportMyData(),
+    onSuccess: (blob: Blob) => {
+      // Trigger browser file download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `emora_data_export_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 4000);
+    },
+    onError: (err) => setExportError(getErrorMessage(err)),
+  });
+
+  // ── Delete account mutation ───────────────────────────────────────────────
+  const deleteMutation = useMutation({
+    mutationFn: () => usersApi.deleteMyAccount(),
+    onSuccess: () => {
+      // Sign out and redirect to login — backend has already deleted the account
+      logout();
+    },
+    onError: (err) => setDeleteError(getErrorMessage(err)),
+  });
+
   function handleReducedMotionChange(e: React.ChangeEvent<HTMLInputElement>) {
     const active = e.target.checked;
     setReducedMotion(active);
@@ -79,6 +119,8 @@ export default function SettingsPage() {
       document.documentElement.classList.remove('reduce-motion');
     }
   }
+
+  const deleteConfirmValid = deleteConfirmText.trim() === 'DELETE';
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
@@ -160,7 +202,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Security Info */}
+            {/* Privacy & Data */}
             <div className="space-y-4">
               <h2 className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-2 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-indigo-500" aria-hidden />
@@ -196,6 +238,115 @@ export default function SettingsPage() {
             </div>
           </div>
         </form>
+      </Card>
+
+      {/* ── Data Rights Card ───────────────────────────────────────────────── */}
+      <Card padding="lg">
+        <div className="space-y-6">
+          <h2 className="text-sm font-semibold text-slate-700 border-b border-slate-100 pb-2 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-indigo-500" aria-hidden />
+            Your Data Rights
+          </h2>
+
+          {/* Export My Data */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-slate-800">Export my data</p>
+              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                Download a copy of everything Emora holds about you: your profile,
+                all conversations, mood logs, and journal entries — as a JSON file.
+              </p>
+            </div>
+            {exportError && <InlineError message={exportError} />}
+            {exportSuccess && (
+              <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs">
+                Your data export has started downloading.
+              </div>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              leftIcon={<Download className="w-4 h-4" />}
+              isLoading={exportMutation.isPending}
+              onClick={() => {
+                setExportError(null);
+                exportMutation.mutate();
+              }}
+            >
+              Export my data
+            </Button>
+          </div>
+
+          {/* Delete My Account */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-slate-800">Delete my account and all data</p>
+              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                Permanently deletes your Emora account, all conversations and messages, mood logs,
+                and journal entries. <strong className="text-slate-700">This action cannot be undone.</strong>
+              </p>
+            </div>
+
+            {!showDeleteConfirm ? (
+              <Button
+                type="button"
+                variant="danger"
+                leftIcon={<Trash2 className="w-4 h-4" />}
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                Delete my account
+              </Button>
+            ) : (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
+                <div className="flex gap-2 items-start">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden />
+                  <p className="text-sm text-rose-800 font-medium">
+                    This will permanently delete your account and all data. There is no recovery.
+                  </p>
+                </div>
+                <p className="text-xs text-rose-700">
+                  Type <strong>DELETE</strong> to confirm:
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="Type DELETE here"
+                  aria-label="Type DELETE to confirm account deletion"
+                  className="w-full rounded-xl border border-rose-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400"
+                />
+                {deleteError && <InlineError message={deleteError} />}
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setShowDeleteConfirm(false);
+                      setDeleteConfirmText('');
+                      setDeleteError(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    disabled={!deleteConfirmValid}
+                    isLoading={deleteMutation.isPending}
+                    onClick={() => {
+                      if (deleteConfirmValid) {
+                        setDeleteError(null);
+                        deleteMutation.mutate();
+                      }
+                    }}
+                  >
+                    Delete permanently
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </Card>
     </div>
   );

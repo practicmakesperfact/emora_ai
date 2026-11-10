@@ -5,11 +5,14 @@ Provides endpoints for user profile management.
 Routes:
   GET    /api/v1/users/me              - Get current user profile
   PUT    /api/v1/users/me              - Update current user profile
+  GET    /api/v1/users/me/export       - Export all personal data as JSON
+  DELETE /api/v1/users/me              - Delete own account and all data
   GET    /api/v1/users/{user_id}       - Admin/Counselor: get any user by ID
   DELETE /api/v1/users/{user_id}       - Admin only: delete a user
 """
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_admin, require_counselor_or_admin
@@ -62,6 +65,51 @@ async def update_my_profile(
     updated_user = await service.update_user(current_user.id, user_update)
     logger.info("User profile updated", user_id=current_user.id)
     return updated_user
+
+
+# ─── Self-Service Data Rights ─────────────────────────────────────────────────
+
+@router.get(
+    "/me/export",
+    status_code=status.HTTP_200_OK,
+    summary="Export my personal data",
+    description=(
+        "Returns a JSON bundle of all personal data for the currently authenticated user: "
+        "profile, conversations with messages, mood logs, and journal entries."
+    ),
+)
+async def export_my_data(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> JSONResponse:
+    """Export all personal data for the authenticated user as a JSON download."""
+    service = UserService(db)
+    bundle = await service.export_user_data(current_user.id)
+    logger.info("User data exported", user_id=current_user.id)
+    return JSONResponse(
+        content=bundle,
+        headers={"Content-Disposition": f'attachment; filename="emora_data_{current_user.id}.json"'},
+    )
+
+
+@router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete my account and all data",
+    description=(
+        "Permanently deletes the authenticated user's account and ALL associated data: "
+        "conversations, messages, mood logs, journal entries, and memories. "
+        "This action is irreversible."
+    ),
+)
+async def delete_my_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Permanently delete the authenticated user's account and all their data."""
+    service = UserService(db)
+    await service.delete_user(current_user.id)
+    logger.info("User account self-deleted", user_id=current_user.id)
 
 
 # ─── Admin / Counselor Routes ─────────────────────────────────────────────────
