@@ -43,75 +43,89 @@ import {
   Info,
   Database,
   ChevronUp,
+  Activity,
+  Bell,
 } from 'lucide-react';
 
 interface NavItem {
   href: string;
-  label: string;
+  labelEn: string;
+  labelAm: string;
   icon: React.ReactNode;
   roles?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
+  // User navigation
   {
     href: ROUTES.DASHBOARD,
-    label: 'Dashboard',
+    labelEn: 'Dashboard',
+    labelAm: 'ዋና ገጽ',
     icon: <LayoutDashboard className="w-4 h-4" />,
-    roles: [ROLES.USER, ROLES.COUNSELOR, ROLES.ADMIN],
+    roles: [ROLES.USER],
   },
   {
     href: ROUTES.CHAT,
-    label: 'Chat',
+    labelEn: 'Chat',
+    labelAm: 'ውይይት',
     icon: <MessageCircle className="w-4 h-4" />,
     roles: [ROLES.USER],
   },
   {
     href: ROUTES.MOOD,
-    label: 'Mood Tracker',
+    labelEn: 'Mood Tracker',
+    labelAm: 'የስሜት ክትትል',
     icon: <Heart className="w-4 h-4" />,
     roles: [ROLES.USER],
   },
   {
     href: ROUTES.JOURNAL,
-    label: 'Journal',
+    labelEn: 'Journal',
+    labelAm: 'ማስታወሻ',
     icon: <BookOpen className="w-4 h-4" />,
     roles: [ROLES.USER],
   },
-  // Counselor
+  // Counselor navigation — renamed and different icons
   {
     href: ROUTES.COUNSELOR_DASHBOARD,
-    label: 'Counselor Dashboard',
-    icon: <LayoutDashboard className="w-4 h-4" />,
+    labelEn: 'Overview',
+    labelAm: 'አጠቃላይ እይታ',
+    icon: <Activity className="w-4 h-4" />,
     roles: [ROLES.COUNSELOR, ROLES.ADMIN],
   },
   {
     href: ROUTES.COUNSELOR_INCIDENTS,
-    label: 'Crisis Incidents',
-    icon: <AlertTriangle className="w-4 h-4" />,
+    labelEn: 'Incidents',
+    labelAm: 'ክስተቶች',
+    icon: <Bell className="w-4 h-4" />,
     roles: [ROLES.COUNSELOR, ROLES.ADMIN],
   },
-  // Admin
+  // Admin navigation
   {
     href: ROUTES.ADMIN_DASHBOARD,
-    label: 'Admin Dashboard',
+    labelEn: 'Admin Dashboard',
+    labelAm: 'የአስተዳዳሪ ዳሽቦርድ',
     icon: <Shield className="w-4 h-4" />,
     roles: [ROLES.ADMIN],
   },
   {
     href: ROUTES.ADMIN_DOCUMENTS,
-    label: 'Upload Documents',
+    labelEn: 'Upload Documents',
+    labelAm: 'ሰነዶችን ስቀል',
     icon: <FileText className="w-4 h-4" />,
     roles: [ROLES.ADMIN],
   },
   {
     href: ROUTES.ADMIN_KNOWLEDGE_BASE,
-    label: 'Knowledge Base',
+    labelEn: 'Knowledge Base',
+    labelAm: 'የእውቀት ጎተራ',
     icon: <Database className="w-4 h-4" />,
     roles: [ROLES.ADMIN],
   },
   {
     href: ROUTES.ADMIN_USERS,
-    label: 'Users',
+    labelEn: 'Users',
+    labelAm: 'ተጠቃሚዎች',
     icon: <Users className="w-4 h-4" />,
     roles: [ROLES.ADMIN],
   },
@@ -126,15 +140,20 @@ interface SidebarProps {
 // ─── NavTooltip ───────────────────────────────────────────────────────────────
 /** Shows a floating label on the right when the sidebar is collapsed */
 function NavTooltip({
-  label,
+  labelEn,
+  labelAm,
   collapsed,
   children,
 }: {
-  label: string;
+  labelEn: string;
+  labelAm: string;
   collapsed: boolean;
   children: React.ReactNode;
 }) {
   const [show, setShow] = useState(false);
+  const { t } = useLanguage();
+  const label = t(labelEn, labelAm);
+  
   if (!collapsed) return <>{children}</>;
   return (
     <div
@@ -353,6 +372,7 @@ function UserMenuButton({ collapsed, onClose }: UserMenuButtonProps) {
 export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const userRole = user?.role?.name || ROLES.USER;
 
   const visibleItems = NAV_ITEMS.filter(
@@ -363,6 +383,11 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
     if (href === ROUTES.CHAT) return pathname === ROUTES.CHAT || pathname.startsWith('/chat/');
     return pathname === href || pathname.startsWith(href + '/');
   }
+
+  // Determine home link based on role
+  const homeHref = userRole === ROLES.COUNSELOR || userRole === ROLES.ADMIN 
+    ? ROUTES.COUNSELOR_DASHBOARD 
+    : ROUTES.DASHBOARD;
 
   return (
     <aside
@@ -375,7 +400,7 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
       {/* Logo */}
       <div className={cn('border-b border-slate-100', collapsed ? 'py-4 px-2 w-full flex justify-center' : 'px-5 py-5')}>
         <Link
-          href={ROUTES.DASHBOARD}
+          href={homeHref}
           className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg"
           onClick={onClose}
           aria-label="Emora home"
@@ -395,7 +420,7 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
         aria-label="Primary"
       >
         {visibleItems.map((item) => (
-          <NavTooltip key={item.href} label={item.label} collapsed={collapsed}>
+          <NavTooltip key={item.href} labelEn={item.labelEn} labelAm={item.labelAm} collapsed={collapsed}>
             <Link
               href={item.href}
               onClick={onClose}
@@ -410,7 +435,7 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
               )}
               aria-current={isActive(item.href) ? 'page' : undefined}
-              aria-label={collapsed ? item.label : undefined}
+              aria-label={collapsed ? t(item.labelEn, item.labelAm) : undefined}
             >
               <span
                 className={cn(
@@ -420,7 +445,7 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
               >
                 {item.icon}
               </span>
-              {!collapsed && item.label}
+              {!collapsed && t(item.labelEn, item.labelAm)}
             </Link>
           </NavTooltip>
         ))}
@@ -428,7 +453,7 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
 
       {/* Bottom — user menu button */}
       <div className={cn('py-3 border-t border-slate-100', collapsed ? 'px-1 w-full flex justify-center' : 'px-3')}>
-        <NavTooltip label="Account" collapsed={collapsed}>
+        <NavTooltip labelEn="Account" labelAm="መለያ" collapsed={collapsed}>
           <UserMenuButton collapsed={collapsed} onClose={onClose} />
         </NavTooltip>
       </div>

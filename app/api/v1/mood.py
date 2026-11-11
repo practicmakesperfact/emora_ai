@@ -15,7 +15,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_user
 from app.core.logging import get_logger
 from app.database.connection import get_db_session
 from app.models.user import User
@@ -24,7 +24,12 @@ from app.services.mood_service import MoodService
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/mood", tags=["Mood"])
+# Require User role for all mood endpoints
+router = APIRouter(
+    prefix="/mood",
+    tags=["Mood"],
+    dependencies=[Depends(require_user)],
+)
 
 
 # ─── Record Mood Log ──────────────────────────────────────────────────────────

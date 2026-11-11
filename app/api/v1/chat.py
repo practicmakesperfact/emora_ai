@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_user
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.connection import get_db_session
@@ -41,7 +41,12 @@ from app.services.chat_service import ChatService
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/chat", tags=["Chat"])
+# Require User role for all chat endpoints
+router = APIRouter(
+    prefix="/chat",
+    tags=["Chat"],
+    dependencies=[Depends(require_user)],
+)
 
 
 # ─── Start Conversation ────────────────────────────────────────────────────────
