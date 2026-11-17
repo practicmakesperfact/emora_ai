@@ -81,12 +81,34 @@ class ConversationRepository:
         return conversation
 
     async def delete_conversation(self, conversation_id: int) -> None:
-        """Hard-delete a conversation (cascades to messages via FK)."""
+        """Hard-delete a conversation and all related records (messages, memories, incidents, sentiments)."""
+        from app.models.memory import Memory
+        from app.models.crisis import Incident
+        from app.models.sentiment import SentimentLog
+        
+        # Delete all related records first to avoid foreign key constraint violations
+        # 1. Delete messages
+        await self.db.execute(
+            delete(Message).where(Message.conversation_id == conversation_id)
+        )
+        # 2. Delete memories
+        await self.db.execute(
+            delete(Memory).where(Memory.conversation_id == conversation_id)
+        )
+        # 3. Delete incidents (conversation_id is nullable, so only delete those linked)
+        await self.db.execute(
+            delete(Incident).where(Incident.conversation_id == conversation_id)
+        )
+        # 4. Delete sentiment logs (conversation_id is nullable)
+        await self.db.execute(
+            delete(SentimentLog).where(SentimentLog.conversation_id == conversation_id)
+        )
+        # Finally, delete the conversation itself
         await self.db.execute(
             delete(Conversation).where(Conversation.id == conversation_id)
         )
         await self.db.flush()
-        logger.debug("Conversation deleted", conversation_id=conversation_id)
+        logger.debug("Conversation and all related records deleted", conversation_id=conversation_id)
 
     # ─── Messages ─────────────────────────────────────────────────────────────
 

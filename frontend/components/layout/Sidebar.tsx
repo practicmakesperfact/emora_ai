@@ -46,6 +46,7 @@ import {
   Activity,
   Bell,
 } from 'lucide-react';
+import { ChatHistory } from '@/components/chat/ChatHistory';
 
 interface NavItem {
   href: string;
@@ -56,19 +57,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  // User navigation
+  // User navigation - Remove Chat link (now in sidebar history)
   {
     href: ROUTES.DASHBOARD,
     labelEn: 'Dashboard',
     labelAm: 'ዋና ገጽ',
     icon: <LayoutDashboard className="w-4 h-4" />,
-    roles: [ROLES.USER],
-  },
-  {
-    href: ROUTES.CHAT,
-    labelEn: 'Chat',
-    labelAm: 'ውይይት',
-    icon: <MessageCircle className="w-4 h-4" />,
     roles: [ROLES.USER],
   },
   {
@@ -389,6 +383,9 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
     ? ROUTES.COUNSELOR_DASHBOARD 
     : ROUTES.DASHBOARD;
 
+  // Show chat history only for USER role
+  const showChatHistory = userRole === ROLES.USER;
+
   return (
     <aside
       className={cn(
@@ -398,7 +395,7 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
       aria-label="Main navigation"
     >
       {/* Logo */}
-      <div className={cn('border-b border-slate-100', collapsed ? 'py-4 px-2 w-full flex justify-center' : 'px-5 py-5')}>
+      <div className={cn('border-b border-slate-100 shrink-0', collapsed ? 'py-4 px-2 w-full flex justify-center' : 'px-5 py-5')}>
         <Link
           href={homeHref}
           className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-lg"
@@ -414,9 +411,16 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
         </Link>
       </div>
 
+      {/* Chat History (USER role only) */}
+      {showChatHistory && (
+        <div className="flex flex-col min-h-0 flex-1">
+          <ChatHistory collapsed={collapsed} onClose={onClose} />
+        </div>
+      )}
+
       {/* Main Nav */}
       <nav
-        className={cn('flex-1 overflow-y-auto py-3 space-y-0.5 sidebar-scroll', collapsed ? 'px-1 w-full' : 'px-3')}
+        className={cn('py-3 space-y-0.5 sidebar-scroll shrink-0', collapsed ? 'px-1 w-full' : 'px-3')}
         aria-label="Primary"
       >
         {visibleItems.map((item) => (
@@ -452,7 +456,7 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
       </nav>
 
       {/* Bottom — user menu button */}
-      <div className={cn('py-3 border-t border-slate-100', collapsed ? 'px-1 w-full flex justify-center' : 'px-3')}>
+      <div className={cn('py-3 border-t border-slate-100 shrink-0', collapsed ? 'px-1 w-full flex justify-center' : 'px-3')}>
         <NavTooltip labelEn="Account" labelAm="መለያ" collapsed={collapsed}>
           <UserMenuButton collapsed={collapsed} onClose={onClose} />
         </NavTooltip>
