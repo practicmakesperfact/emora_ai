@@ -204,6 +204,7 @@ class ChatService:
         conversation_id: int,
         user_id: int,
         user_message: str,
+        preferred_language: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """
         Agentic AI response pipeline via LangGraph workflow:
@@ -265,8 +266,8 @@ class ChatService:
                 "final_response": "",
                 "response_tokens": [],
                 # Language — language_node will update these each turn
-                "target_language": "en",
-                "language_locked": False,
+                "target_language": preferred_language or "en",
+                "language_locked": bool(preferred_language),  # Lock if explicitly provided
             }
 
             workflow = build_workflow(self._db)

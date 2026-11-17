@@ -16,7 +16,7 @@ interface UseSSEStreamOptions {
 
 interface UseSSEStreamReturn {
   isStreaming: boolean;
-  startStream: (conversationId: number, content: string) => Promise<void>;
+  startStream: (conversationId: number, content: string, language?: string) => Promise<void>;
   cancelStream: () => void;
 }
 
@@ -35,7 +35,7 @@ export function useSSEStream({
   }, []);
 
   const startStream = useCallback(
-    async (conversationId: number, content: string) => {
+    async (conversationId: number, content: string, language?: string) => {
       const baseUrl =
         process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
       const token =
@@ -61,7 +61,10 @@ export function useSSEStream({
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ content }),
+            body: JSON.stringify({ 
+              content,
+              ...(language && { preferred_language: language })
+            }),
             signal: controller.signal,
           }
         );

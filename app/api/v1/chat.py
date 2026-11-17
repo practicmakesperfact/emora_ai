@@ -246,6 +246,7 @@ async def send_message(
             conversation_id=conversation_id,
             user_id=current_user.id,
             user_message=payload.content,
+            preferred_language=payload.preferred_language,
         )
 
         # Use an async queue to bridge the pipeline and the SSE output

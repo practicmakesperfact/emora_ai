@@ -30,6 +30,7 @@ import { SessionLimitBanner } from '@/components/chat/SessionLimitBanner';
 import { AIDisclosureCard } from '@/components/chat/AIDisclosureCard';
 import { ConsentScreen, hasConsented } from '@/components/chat/ConsentScreen';
 import { useSSEStream } from '@/hooks/useSSEStream';
+import { useLanguage } from '@/providers/LanguageProvider';
 import { formatTime, cn } from '@/utils';
 import { ROUTES, CHAT_PLACEHOLDER, PRIVACY_NOTICE } from '@/constants';
 import type { Message, SessionStatus, Conversation } from '@/types';
@@ -43,6 +44,7 @@ export default function ConversationPage({ params }: Props) {
   const conversationId = parseInt(convIdStr, 10);
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
+  const { lang } = useLanguage(); // Get current language from context
 
   // ?crisis=mock in URL triggers the crisis card for testing without real high-risk text
   const isMockCrisis = searchParams.get('crisis') === 'mock';
@@ -187,7 +189,7 @@ export default function ConversationPage({ params }: Props) {
         created_at: new Date().toISOString(),
       };
       setMessages([optimisticMsg]);
-      startStream(conversationId, content);
+      startStream(conversationId, content, lang);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
@@ -210,7 +212,7 @@ export default function ConversationPage({ params }: Props) {
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticMsg]);
-    await startStream(conversationId, text);
+    await startStream(conversationId, text, lang);
   }
 
   async function sendMessage() {
@@ -232,7 +234,7 @@ export default function ConversationPage({ params }: Props) {
     };
     setMessages((prev) => [...prev, optimisticMsg]);
 
-    await startStream(conversationId, content);
+    await startStream(conversationId, content, lang);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

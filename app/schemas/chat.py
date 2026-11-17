@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class MessageCreate(BaseModel):
     content: str = Field(..., min_length=1, description="Content of the user message")
+    preferred_language: Optional[str] = Field(default=None, max_length=10, description="User's preferred response language ('en' or 'am')")
 
 class MessageOut(BaseModel):
     id: int

@@ -50,6 +50,9 @@ export default function ChatPage() {
       setDeleteId(null);
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
+    onError: (error) => {
+      console.error('Delete conversation error:', error);
+    },
   });
 
   const renameMutation = useMutation({
