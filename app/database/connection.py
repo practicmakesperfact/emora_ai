@@ -6,10 +6,11 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 # Create async engine
-# We use NullPool or configure pool settings for robust async database operations
+# echo=False to disable SQL query logging in production
+# Set echo=True only during development for debugging
 engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,
+    echo=False,  # Disable verbose SQL logging (use DEBUG=True in .env for dev mode)
     future=True,
     pool_pre_ping=True,
     pool_size=20,

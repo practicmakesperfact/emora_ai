@@ -420,7 +420,12 @@ export function Sidebar({ onClose, collapsed = false }: SidebarProps) {
 
       {/* Main Nav */}
       <nav
-        className={cn('py-3 space-y-0.5 sidebar-scroll shrink-0', collapsed ? 'px-1 w-full' : 'px-3')}
+        className={cn(
+          'py-3 space-y-0.5 sidebar-scroll shrink-0',
+          collapsed ? 'px-1 w-full' : 'px-3',
+          // For counselors/admins without chat history, fill remaining space
+          !showChatHistory && 'flex-1 overflow-y-auto'
+        )}
         aria-label="Primary"
       >
         {visibleItems.map((item) => (
