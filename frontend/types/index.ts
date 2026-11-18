@@ -216,3 +216,27 @@ export interface PaginationParams {
   skip?: number;
   limit?: number;
 }
+
+// ─── Session Limiting ──────────────────────────────────────────────────────────
+
+export interface SessionStatus {
+  conversation_id: number;
+  user_message_count: number;
+  max_messages: number;
+  session_age_minutes: number;
+  max_duration_minutes: number;
+  messages_remaining: number;
+  minutes_remaining: number;
+  is_message_limit_reached: boolean;
+  is_duration_limit_reached: boolean;
+  is_limit_reached: boolean;
+}
+
+// ─── Daily Usage (Transparency indicator) ─────────────────────────────────────
+
+export interface DailyUsage {
+  messages_today: number;
+  daily_soft_limit: number;
+  usage_percent: number;
+  is_approaching_limit: boolean;
+}

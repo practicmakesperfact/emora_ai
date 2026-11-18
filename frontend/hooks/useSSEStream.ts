@@ -1,6 +1,7 @@
 // ============================================================
 // Emora AI — useSSEStream Hook
-// Handles Server-Sent Events streaming from FastAPI backend
+// Handles Server-Sent Events streaming from FastAPI backend.
+// Detects HTTP 429 (session limit) and surfaces it via onSessionLimit.
 // ============================================================
 
 import { useCallback, useRef, useState } from 'react';
@@ -9,11 +10,13 @@ interface UseSSEStreamOptions {
   onToken: (token: string) => void;
   onDone: () => void;
   onError: (error: string) => void;
+  /** Called when the backend returns HTTP 429 (session limit reached). */
+  onSessionLimit?: (message: string) => void;
 }
 
 interface UseSSEStreamReturn {
   isStreaming: boolean;
-  startStream: (conversationId: number, content: string) => Promise<void>;
+  startStream: (conversationId: number, content: string, language?: string) => Promise<void>;
   cancelStream: () => void;
 }
 
@@ -21,6 +24,7 @@ export function useSSEStream({
   onToken,
   onDone,
   onError,
+  onSessionLimit,
 }: UseSSEStreamOptions): UseSSEStreamReturn {
   const [isStreaming, setIsStreaming] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -31,7 +35,7 @@ export function useSSEStream({
   }, []);
 
   const startStream = useCallback(
-    async (conversationId: number, content: string) => {
+    async (conversationId: number, content: string, language?: string) => {
       const baseUrl =
         process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
       const token =
@@ -57,13 +61,30 @@ export function useSSEStream({
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ content }),
+            body: JSON.stringify({ 
+              content,
+              ...(language && { preferred_language: language })
+            }),
             signal: controller.signal,
           }
         );
 
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
+
+          // ── Session limit hit (HTTP 429) ───────────────────────────
+          if (response.status === 429) {
+            const msg =
+              err?.error ||
+              'You have reached the session limit. Please start a new conversation.';
+            if (onSessionLimit) {
+              onSessionLimit(msg);
+            } else {
+              onError(msg);
+            }
+            return;
+          }
+
           throw new Error(
             err?.error || "We're having trouble sending your message right now."
           );
@@ -132,7 +153,7 @@ export function useSSEStream({
         setIsStreaming(false);
       }
     },
-    [onToken, onDone, onError]
+    [onToken, onDone, onError, onSessionLimit]
   );
 
   return { isStreaming, startStream, cancelStream };

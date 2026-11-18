@@ -20,24 +20,33 @@ from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_user
+from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.connection import get_db_session
 from app.models.user import User
 from app.schemas.chat import (
     ConversationCreate,
     ConversationOut,
+    ConversationRename,
     ConversationSearchResponse,
     ConversationSummaryResponse,
+    DailyUsageOut,
     MessageCreate,
     MessageOut,
     SearchResult,
+    SessionStatusOut,
 )
 from app.services.chat_service import ChatService
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/chat", tags=["Chat"])
+# Require User role for all chat endpoints
+router = APIRouter(
+    prefix="/chat",
+    tags=["Chat"],
+    dependencies=[Depends(require_user)],
+)
 
 
 # ─── Start Conversation ────────────────────────────────────────────────────────
@@ -129,6 +138,76 @@ async def delete_conversation(
     )
 
 
+# ─── Rename Conversation ───────────────────────────────────────────────────────
+
+@router.patch(
+    "/{conversation_id}/rename",
+    response_model=ConversationOut,
+    status_code=status.HTTP_200_OK,
+    summary="Rename a conversation",
+    description="Updates the title of a conversation owned by the authenticated user.",
+)
+async def rename_conversation(
+    conversation_id: int,
+    payload: ConversationRename,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> ConversationOut:
+    """Rename a conversation title."""
+    service = ChatService(db)
+    conversation = await service.rename_conversation(
+        conversation_id=conversation_id,
+        user_id=current_user.id,
+        new_title=payload.title,
+    )
+    logger.info(
+        "Conversation renamed via API",
+        user_id=current_user.id,
+        conversation_id=conversation_id,
+    )
+    return conversation
+
+
+# ─── Auto-generate Title ──────────────────────────────────────────────────────
+
+@router.post(
+    "/{conversation_id}/generate-title",
+    response_model=ConversationOut,
+    status_code=status.HTTP_200_OK,
+    summary="Auto-generate conversation title",
+    description="Generate a title from the first user message using AI.",
+)
+async def generate_title(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> ConversationOut:
+    """Auto-generate a conversation title from the first message."""
+    service = ChatService(db)
+    
+    # Get messages to find the first user message
+    messages = await service.get_messages(
+        conversation_id=conversation_id,
+        user_id=current_user.id,
+        skip=0,
+        limit=1,
+    )
+    
+    if not messages:
+        # No messages yet, keep current title
+        return await service.get_conversation(conversation_id, current_user.id)
+    
+    first_message = messages[0].content
+    await service.generate_conversation_title(
+        conversation_id=conversation_id,
+        user_id=current_user.id,
+        first_message=first_message,
+    )
+    
+    # Return updated conversation
+    return await service.get_conversation(conversation_id, current_user.id)
+
+
 # ─── Get Message History ───────────────────────────────────────────────────────
 
 @router.get(
@@ -207,6 +286,7 @@ async def send_message(
             conversation_id=conversation_id,
             user_id=current_user.id,
             user_message=payload.content,
+            preferred_language=payload.preferred_language,
         )
 
         # Use an async queue to bridge the pipeline and the SSE output
@@ -283,3 +363,52 @@ async def summarize_conversation(
         conversation_id=conversation_id,
         summary=summary,
     )
+
+
+
+# ─── Session Status ────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{conversation_id}/session-status",
+    response_model=SessionStatusOut,
+    status_code=status.HTTP_200_OK,
+    summary="Get session limit status for a conversation",
+    description=(
+        "Returns how many user messages have been sent and how many minutes the session "
+        "has been active, together with the configured limits. "
+        "The frontend uses this to show a session-limit warning banner."
+    ),
+)
+async def get_session_status(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> SessionStatusOut:
+    """Return current session usage vs configured limits."""
+    service = ChatService(db)
+    return await service.get_session_status(
+        conversation_id=conversation_id, user_id=current_user.id
+    )
+
+
+
+# ─── Daily Usage ───────────────────────────────────────────────────────────────
+
+@router.get(
+    "/daily-usage",
+    response_model=DailyUsageOut,
+    status_code=status.HTTP_200_OK,
+    summary="Get today's total message usage across all conversations",
+    description=(
+        "Returns how many messages the current user has sent today (UTC) "
+        "across ALL their conversations, plus a soft daily limit for display. "
+        "This is a transparency indicator only — it is not enforced server-side."
+    ),
+)
+async def get_daily_usage(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> DailyUsageOut:
+    """Return today's message count vs soft daily limit for transparency display."""
+    service = ChatService(db)
+    return await service.get_daily_usage(user_id=current_user.id)

@@ -19,7 +19,7 @@ async def cbt_node(state: dict, db) -> dict:
     """
     groq = AsyncGroq(api_key=settings.GROQ_API_KEY)
 
-    system = get_system_prompt() + "\n\n" + get_cbt_prompt()
+    system = get_system_prompt(state.get("target_language", "en")) + "\n\n" + get_cbt_prompt()
     if state.get("memory_context"):
         system += f"\n\n{state['memory_context']}"
     if state.get("rag_context"):

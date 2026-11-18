@@ -9,6 +9,7 @@ from app.api.v1.journal import router as journal_router
 from app.api.v1.crisis import router as crisis_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.rag import router as rag_router
+from app.api.v1.ws_crisis import router as ws_crisis_router
 
 # Versioned API router
 api_router = APIRouter(prefix="/api/v1")
@@ -23,3 +24,7 @@ api_router.include_router(journal_router)
 api_router.include_router(crisis_router)
 api_router.include_router(documents_router)
 api_router.include_router(rag_router)
+
+# HITL real-time WebSocket (counselor dashboard pings)
+# WS URL: ws://HOST/api/v1/crisis/ws?token=<jwt>
+api_router.include_router(ws_crisis_router)

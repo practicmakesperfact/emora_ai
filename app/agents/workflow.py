@@ -42,6 +42,7 @@ async def run_workflow(
     from app.agents.guardrail import guardrail_node
     from app.agents.intent import intent_node
     from app.agents.sentiment import sentiment_node
+    from app.agents.language import language_node
     from app.agents.crisis import crisis_node
     from app.agents.memory import memory_node
     from app.agents.rag_retrieval import rag_retrieval_node
@@ -70,17 +71,22 @@ async def run_workflow(
         "rag_context": "",
         "final_response": "",
         "response_tokens": [],
+        # Language tracking — updated by language_node each turn
+        "target_language": "en",   # 'en' | 'am'
+        "language_locked": False,  # True after an explicit switch request
     })
 
-    # -- Round 1: Guardrail + Intent + Sentiment (parallel LLM calls) ----------
-    guardrail_result, intent_result, sentiment_result = await asyncio.gather(
+    # -- Round 1: Guardrail + Intent + Sentiment + Language (parallel) ----------
+    guardrail_result, intent_result, sentiment_result, language_result = await asyncio.gather(
         guardrail_node(state, db),
         intent_node(state, db),
         sentiment_node(state, db),
+        language_node(state),
     )
     # Merge results — guardrail takes precedence for safety flags
     state.update(intent_result)
     state.update(sentiment_result)
+    state.update(language_result)   # target_language, language_locked
     state.update(guardrail_result)
 
     # Early exit: unsafe input

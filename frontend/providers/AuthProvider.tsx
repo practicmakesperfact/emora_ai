@@ -1,6 +1,10 @@
 // ============================================================
 // Emora AI — Auth Provider
-// Manages authentication state across the application
+// Manages authentication state across the application.
+//
+// Key design: login() and register() now RETURN the User profile
+// so callers can redirect immediately without waiting for the
+// async React state update cycle.
 // ============================================================
 
 'use client';
@@ -17,6 +21,22 @@ import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api/auth.api';
 import { usersApi } from '@/lib/api/users.api';
 import type { User, LoginRequest, UserCreate } from '@/types';
+import { ROUTES, ROLES } from '@/constants';
+
+// ─── Role-based Home Helper ────────────────────────────────────────────────
+
+/**
+ * Returns the correct landing page for a given user based on their role.
+ *   Admin / Counselor → /counselor/dashboard
+ *   User              → /dashboard
+ */
+export function getRoleHome(user: User | null): string {
+  const role = user?.role?.name;
+  if (role === ROLES.ADMIN || role === ROLES.COUNSELOR) {
+    return ROUTES.COUNSELOR_DASHBOARD;
+  }
+  return ROUTES.DASHBOARD;
+}
 
 // ─── Context Types ─────────────────────────────────────────────────────────
 
@@ -24,8 +44,10 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (credentials: LoginRequest) => Promise<void>;
-  register: (data: UserCreate) => Promise<void>;
+  /** Logs in and returns the fetched User profile for immediate role-based redirect */
+  login: (credentials: LoginRequest) => Promise<User>;
+  /** Registers, auto-logs in, and returns the User profile */
+  register: (data: UserCreate) => Promise<User>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -59,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user profile on mount (if token exists)
+  // Load user profile on mount (if a token already exists in localStorage)
   const refreshUser = useCallback(async () => {
     const token = getAccessToken();
     if (!token) {
@@ -67,7 +89,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
       return;
     }
-
     try {
       const profile = await usersApi.getMe();
       setUser(profile);
@@ -80,36 +101,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line
     refreshUser();
   }, [refreshUser]);
 
-  // ── Login ────────────────────────────────────────────────────────────────
+  // ── Login ─────────────────────────────────────────────────────────────────
 
-  const login = useCallback(async (credentials: LoginRequest) => {
+  /**
+   * Authenticates the user, saves tokens, fetches profile, updates context.
+   * Returns the User object so the caller can redirect immediately.
+   */
+  const login = useCallback(async (credentials: LoginRequest): Promise<User> => {
     const tokens = await authApi.login(credentials);
     saveTokens(tokens.access_token, tokens.refresh_token);
     const profile = await usersApi.getMe();
     setUser(profile);
+    return profile; // ← caller uses this for instant redirect
   }, []);
 
-  // ── Register ─────────────────────────────────────────────────────────────
+  // ── Register ──────────────────────────────────────────────────────────────
 
-  const register = useCallback(async (data: UserCreate) => {
+  /**
+   * Registers a new account, auto-logs in, fetches profile, updates context.
+   * Returns the User object so the caller can redirect immediately.
+   */
+  const register = useCallback(async (data: UserCreate): Promise<User> => {
     await authApi.register(data);
-    // Auto-login after registration
+    // Auto-login after successful registration
     const tokens = await authApi.login({ email: data.email, password: data.password });
     saveTokens(tokens.access_token, tokens.refresh_token);
     const profile = await usersApi.getMe();
     setUser(profile);
+    return profile; // ← caller uses this for instant redirect
   }, []);
 
-  // ── Logout ───────────────────────────────────────────────────────────────
+  // ── Logout ────────────────────────────────────────────────────────────────
 
   const logout = useCallback(() => {
     clearTokens();
     setUser(null);
-    router.push('/login');
+    router.push(ROUTES.LOGIN);
   }, [router]);
 
   return (

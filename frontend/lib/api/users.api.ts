@@ -1,6 +1,8 @@
 // ============================================================
 // Emora AI — Users API
 // GET /users/me, PUT /users/me, GET /users/{id}, DELETE /users/{id}
+// GET /users/me/export — data export
+// DELETE /users/me    — self-delete account
 // ============================================================
 
 import apiClient from './client';
@@ -17,6 +19,26 @@ export const usersApi = {
   updateMe: async (data: UserUpdate): Promise<User> => {
     const res = await apiClient.put<User>('/users/me', data);
     return res.data;
+  },
+
+  /**
+   * GET /users/me/export — Download all personal data as a JSON blob.
+   * Returns a Blob that the caller can turn into a file download.
+   */
+  exportMyData: async (): Promise<Blob> => {
+    const res = await apiClient.get<Blob>('/users/me/export', {
+      responseType: 'blob',
+    });
+    return res.data;
+  },
+
+  /**
+   * DELETE /users/me — Permanently delete the authenticated user's account
+   * and all associated data (conversations, mood logs, journal entries).
+   * Returns void — the caller must sign the user out after this.
+   */
+  deleteMyAccount: async (): Promise<void> => {
+    await apiClient.delete('/users/me');
   },
 
   /** GET /users/{id} — Admin/Counselor: get any user */

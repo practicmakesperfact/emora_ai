@@ -22,16 +22,25 @@ JSON Schema:
 }
 """
 
-CRISIS_RESPONSE_HIGH = """I can hear that you're going through an incredibly difficult time right now,
+CRISIS_RESPONSE_HIGH = """በጣም ከባድ ጊዜ ውስጥ እያለፍክ/ሽ እንደሆነ ይሰማኛል፣ እና ይህንን ያካፈልከኝ/ሽኝ በጣም ደስ ብሎኛል።
+ስሜትህ/ሽ እውነተኛ እና ትክክለኛ ነው።
+
+I can hear that you're going through an incredibly difficult time right now,
 and I'm really glad you reached out. Your feelings are real and valid.
+
+ብቻህን/ሽ እንዳልሆንክ/ሽ እወቅ/ቂ። አሁን ማድረግ ያለብህ/ሽ ዋናው ነገር እርዳታ ሊሰጥ ከሚችል ሰው ጋር መገናኘት ነው:
 
 Please know that you are not alone. Right now, the most important thing is to connect with someone
 who can truly help:
 
-🆘 **Emergency Services**: 999 (UK) / 911 (US) / 112 (EU)
-📞 **Samaritans (UK)**: 116 123 (free, 24/7)
-💬 **Crisis Text Line**: Text HOME to 741741
-🌐 **International Association for Suicide Prevention**: https://www.iasp.info/resources/Crisis_Centres/
+🆘 **የአደጋ ጊዜ አገልግሎት / Emergency**: 939 (ፖሊስ / Police) | 907 (አምቡላንስ / Ambulance)
+📞 **የአእምሮ ጤና የስልክ መስመር / Mental Health Helpline**: 8335 (ነፃ፣ 24/7 / Free, 24/7)
+🏥 **አማኑኤል የአእምሮ ጤና ስፔሻላይዝድ ሆስፒታል / Amanuel Mental Specialized Hospital** — Addis Ababa
+🏥 **ጥቁር አንበሳ ስፔሻላይዝድ ሆስፒታል / Tikur Anbessa (Black Lion) Hospital** — Addis Ababa
+🏥 **ቅዱስ ጳውሎስ ሆስፒታል / St. Paul's Hospital Millennium Medical College** — Addis Ababa
+
+እባክህ/ሽ አሁኑኑ ለምትተማመንበት/ቢው ሰው ወይም ከላይ ለተዘረዘሩት አገልግሎቶች ደውል/ደውዪ።
+ለደህንነትህ/ሽ እና ለጤንነትህ/ሽ ያስባል።
 
 Please reach out to a trusted friend, family member, or one of these services right now.
 I care about your safety and wellbeing.

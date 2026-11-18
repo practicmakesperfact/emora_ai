@@ -105,7 +105,9 @@ class RoleChecker:
 # Use as Depends() argument in endpoint definitions:
 #   Depends(require_admin)
 #   Depends(require_counselor_or_admin)
+#   Depends(require_user)
 
 require_admin = RoleChecker(["Admin"])
 require_counselor_or_admin = RoleChecker(["Counselor", "Admin"])
+require_user = RoleChecker(["User"])
 require_any_role = RoleChecker(["User", "Counselor", "Admin"])

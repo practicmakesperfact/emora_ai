@@ -144,7 +144,7 @@ export default function MoodPage() {
           <button
             key={p}
             onClick={() => setPeriod(p)}
-            className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+            className={`px-4 py-2 min-h-[44px] rounded-xl text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
               period === p
                 ? 'bg-indigo-600 text-white'
                 : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-300'
@@ -275,7 +275,7 @@ export default function MoodPage() {
                     <p className="font-medium text-sm text-slate-800">
                       {getMoodLabel(log.score)}
                     </p>
-                    <p className="text-xs text-slate-400 mb-2">
+                    <p className="text-xs text-slate-500 mb-2">
                       {formatDateTime(log.created_at)}
                     </p>
                     {log.emotions && log.emotions.length > 0 && (
@@ -330,7 +330,7 @@ export default function MoodPage() {
                           key={n}
                           type="button"
                           onClick={() => field.onChange(n)}
-                          className={`flex-1 min-w-[32px] py-2 rounded-xl text-sm font-medium border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+                          className={`flex-1 min-w-[32px] py-2 min-h-[44px] rounded-xl text-sm font-medium border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                             field.value === n
                               ? 'bg-indigo-600 text-white border-indigo-600'
                               : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'
@@ -368,7 +368,7 @@ export default function MoodPage() {
                     key={emotion}
                     type="button"
                     onClick={() => toggleEmotion(emotion)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+                    className={`px-3 py-1.5 min-h-[44px] rounded-xl text-xs font-medium border transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                       selectedEmotions.includes(emotion)
                         ? 'bg-indigo-600 text-white border-indigo-600'
                         : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'

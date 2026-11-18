@@ -11,6 +11,8 @@ import type {
   ConversationSearchResponse,
   Message,
   PaginationParams,
+  SessionStatus,
+  DailyUsage,
 } from '@/types';
 
 export const chatApi = {
@@ -37,6 +39,12 @@ export const chatApi = {
   /** DELETE /chat/{id} — Delete a conversation */
   deleteConversation: async (conversationId: number): Promise<void> => {
     await apiClient.delete(`/chat/${conversationId}`);
+  },
+
+  /** PATCH /chat/{id}/rename — Rename a conversation */
+  renameConversation: async (conversationId: number, title: string): Promise<Conversation> => {
+    const res = await apiClient.patch<Conversation>(`/chat/${conversationId}/rename`, { title });
+    return res.data;
   },
 
   /** GET /chat/{id}/messages — Get message history */
@@ -81,5 +89,25 @@ export const chatApi = {
     }
 
     return response;
+  },
+
+  /** GET /chat/{id}/session-status — Check session usage vs limits */
+  getSessionStatus: async (conversationId: number): Promise<SessionStatus> => {
+    const res = await apiClient.get<SessionStatus>(
+      `/chat/${conversationId}/session-status`
+    );
+    return res.data;
+  },
+
+  /** GET /chat/daily-usage — Get today's message count vs soft limit */
+  getDailyUsage: async (): Promise<DailyUsage> => {
+    const res = await apiClient.get<DailyUsage>('/chat/daily-usage');
+    return res.data;
+  },
+
+  /** POST /chat/{id}/generate-title — Auto-generate title from first message */
+  generateTitle: async (conversationId: number): Promise<Conversation> => {
+    const res = await apiClient.post<Conversation>(`/chat/${conversationId}/generate-title`);
+    return res.data;
   },
 };

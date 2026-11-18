@@ -31,6 +31,7 @@ export const ROUTES = {
   ADMIN_DOCUMENTS: '/admin/documents',
   ADMIN_KNOWLEDGE_BASE: '/admin/knowledge-base',
   ADMIN_USERS: '/admin/users',
+  EXERCISE: '/exercise',
 } as const;
 
 // ─── Role Names ───────────────────────────────────────────────────────────
@@ -102,11 +103,11 @@ export const CRISIS_LEVELS = {
 // ─── Supported Languages ──────────────────────────────────────────────────
 
 export const LANGUAGES = [
+  { code: 'am', label: 'አማርኛ (Amharic)' },
   { code: 'en', label: 'English' },
-  { code: 'sw', label: 'Swahili' },
-  { code: 'fr', label: 'French' },
-  { code: 'es', label: 'Spanish' },
-  { code: 'ar', label: 'Arabic' },
+  { code: 'om', label: 'Afaan Oromoo' },
+  { code: 'ti', label: 'ትግርኛ (Tigrinya)' },
+  { code: 'so', label: 'Soomaali (Somali)' },
 ];
 
 // ─── Accepted File Types ──────────────────────────────────────────────────
@@ -123,7 +124,7 @@ export const MAX_FILE_SIZE_MB = 50;
 // ─── Privacy Notice ───────────────────────────────────────────────────────
 
 export const PRIVACY_NOTICE =
-  'To protect your privacy, avoid sharing sensitive personal details like your full name or ID number. This conversation may be stored to help improve the service.';
+  'Your chats are stored to improve the service. The AI runs on Groq\'s servers. Avoid sharing your full name or ID number. No data is sold or shared with advertisers.';
 
 export const CHAT_PLACEHOLDER =
   "Share what's on your mind. I'm here to listen and support you.";

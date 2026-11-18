@@ -9,7 +9,7 @@ Responsibilities:
 
 from typing import List, Optional, Sequence
 
-from sqlalchemy import select, delete, or_
+from sqlalchemy import select, delete, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -81,12 +81,34 @@ class ConversationRepository:
         return conversation
 
     async def delete_conversation(self, conversation_id: int) -> None:
-        """Hard-delete a conversation (cascades to messages via FK)."""
+        """Hard-delete a conversation and all related records (messages, memories, incidents, sentiments)."""
+        from app.models.memory import Memory
+        from app.models.crisis import Incident
+        from app.models.sentiment import SentimentLog
+        
+        # Delete all related records first to avoid foreign key constraint violations
+        # 1. Delete messages
+        await self.db.execute(
+            delete(Message).where(Message.conversation_id == conversation_id)
+        )
+        # 2. Delete memories
+        await self.db.execute(
+            delete(Memory).where(Memory.conversation_id == conversation_id)
+        )
+        # 3. Delete incidents (conversation_id is nullable, so only delete those linked)
+        await self.db.execute(
+            delete(Incident).where(Incident.conversation_id == conversation_id)
+        )
+        # 4. Delete sentiment logs (conversation_id is nullable)
+        await self.db.execute(
+            delete(SentimentLog).where(SentimentLog.conversation_id == conversation_id)
+        )
+        # Finally, delete the conversation itself
         await self.db.execute(
             delete(Conversation).where(Conversation.id == conversation_id)
         )
         await self.db.flush()
-        logger.debug("Conversation deleted", conversation_id=conversation_id)
+        logger.debug("Conversation and all related records deleted", conversation_id=conversation_id)
 
     # ─── Messages ─────────────────────────────────────────────────────────────
 
@@ -153,6 +175,23 @@ class ConversationRepository:
         messages.reverse()
         return messages
 
+    # ─── Session Limiting ──────────────────────────────────────────────────────
+
+    async def count_user_messages_in_conversation(
+        self, conversation_id: int
+    ) -> int:
+        """
+        Count how many 'user' role messages exist in a conversation.
+        Used to enforce SESSION_MAX_MESSAGES limit.
+        """
+        result = await self.db.execute(
+            select(func.count()).where(
+                Message.conversation_id == conversation_id,
+                Message.role == "user",
+            )
+        )
+        return result.scalar_one()
+
     # ─── Search ───────────────────────────────────────────────────────────────
 
     async def search_messages(
@@ -212,3 +251,30 @@ class ConversationRepository:
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def count_user_messages_today(self, user_id: int) -> int:
+        """
+        Count how many 'user' role messages the given user has sent today
+        (UTC day) across ALL their conversations. Used for the daily usage
+        transparency indicator on the chat list page.
+        """
+        from datetime import date, datetime, timezone
+
+        today_start = datetime(
+            *date.today().timetuple()[:3], tzinfo=timezone.utc
+        )
+
+        user_conversations = (
+            select(Conversation.id)
+            .where(Conversation.user_id == user_id)
+            .scalar_subquery()
+        )
+
+        result = await self.db.execute(
+            select(func.count(Message.id)).where(
+                Message.conversation_id.in_(user_conversations),
+                Message.role == "user",
+                Message.created_at >= today_start,
+            )
+        )
+        return result.scalar_one() or 0

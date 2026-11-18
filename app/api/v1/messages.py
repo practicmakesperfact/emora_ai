@@ -17,7 +17,7 @@ from typing import List
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_user
 from app.core.exceptions import NotFoundException, AuthorizationException
 from app.core.logging import get_logger
 from app.database.connection import get_db_session
@@ -27,7 +27,11 @@ from app.schemas.chat import MessageOut
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/messages", tags=["Messages"])
+router = APIRouter(
+    prefix="/messages",
+    tags=["Messages"],
+    dependencies=[Depends(require_user)],
+)
 
 
 # ─── List Recent Messages ─────────────────────────────────────────────────────
