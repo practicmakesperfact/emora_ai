@@ -4,15 +4,15 @@
 //
 // Rules:
 //  - Not authenticated → redirect to /login
-//  - Counselor or Admin → redirect to /counselor/dashboard
-//    (they have their own portal; user-only pages aren't their home)
+//  - /profile and /settings → accessible by ALL roles (shared pages)
+//  - Counselor or Admin trying to access user-only pages → redirect to /counselor/dashboard
 //  - User → allow through
 // ============================================================
 
 'use client';
 
 import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { LoadingPage } from '@/components/common/Feedback';
@@ -25,6 +25,7 @@ export default function UserLayout({
 }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (isLoading) return;
@@ -36,11 +37,15 @@ export default function UserLayout({
     }
 
     const role = user?.role?.name;
-    if (role === ROLES.COUNSELOR || role === ROLES.ADMIN) {
-      // Counselors and Admins have their own portal; redirect them home
+    
+    // Profile and Settings are shared by all roles - allow access
+    const isSharedRoute = pathname === '/profile' || pathname === '/settings';
+    
+    if (!isSharedRoute && (role === ROLES.COUNSELOR || role === ROLES.ADMIN)) {
+      // Counselors and Admins trying to access user-only pages → redirect to their dashboard
       router.replace(ROUTES.COUNSELOR_DASHBOARD);
     }
-  }, [isAuthenticated, isLoading, user, router]);
+  }, [isAuthenticated, isLoading, user, router, pathname]);
 
   if (isLoading) {
     return (
@@ -50,9 +55,11 @@ export default function UserLayout({
     );
   }
 
-  // Don't render children until we're sure this is a plain User
+  // Allow counselors/admins to access profile and settings
   const role = user?.role?.name;
-  if (!isAuthenticated || role === ROLES.COUNSELOR || role === ROLES.ADMIN) {
+  const isSharedRoute = pathname === '/profile' || pathname === '/settings';
+  
+  if (!isAuthenticated || (!isSharedRoute && (role === ROLES.COUNSELOR || role === ROLES.ADMIN))) {
     return null;
   }
 
