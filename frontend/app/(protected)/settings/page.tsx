@@ -126,7 +126,7 @@ export default function SettingsPage() {
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500 mt-0.5">
+        <p id="settings-description" className="text-sm text-slate-500 mt-0.5">
           Customize your preferences and accessibility choices.
         </p>
       </div>
@@ -136,6 +136,7 @@ export default function SettingsPage() {
           onSubmit={handleSubmit((d) => updateMutation.mutate(d))}
           noValidate
           aria-label="Application settings form"
+          aria-describedby="settings-description"
         >
           <div className="space-y-6">
             {/* Regional & Language Settings */}
@@ -154,6 +155,7 @@ export default function SettingsPage() {
                   </label>
                   <select
                     id="preferred_language"
+                    aria-label="Select your preferred language for the interface"
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
                     {...register('preferred_language')}
                   >
@@ -187,13 +189,15 @@ export default function SettingsPage() {
                     type="checkbox"
                     checked={reducedMotion}
                     onChange={handleReducedMotionChange}
+                    aria-label="Enable reduced motion to minimize animations"
+                    aria-describedby="reduced-motion-desc"
                     className="mt-1 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-400 cursor-pointer"
                   />
                   <div>
                     <span className="text-sm font-medium text-slate-800">
                       Reduce Motion
                     </span>
-                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                    <p id="reduced-motion-desc" className="text-xs text-slate-500 mt-0.5 leading-relaxed">
                       Minimize screen animations, transitions, and hover motion
                       effects to prevent visual fatigue.
                     </p>
@@ -268,6 +272,7 @@ export default function SettingsPage() {
               variant="outline"
               leftIcon={<Download className="w-4 h-4" />}
               isLoading={exportMutation.isPending}
+              aria-label="Export all your data as a JSON file"
               onClick={() => {
                 setExportError(null);
                 exportMutation.mutate();
@@ -292,13 +297,18 @@ export default function SettingsPage() {
                 type="button"
                 variant="danger"
                 leftIcon={<Trash2 className="w-4 h-4" />}
+                aria-label="Delete account - this action is permanent and cannot be undone"
                 onClick={() => setShowDeleteConfirm(true)}
               >
                 Delete my account
               </Button>
             ) : (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
-                <div className="flex gap-2 items-start">
+              <div 
+                className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3"
+                role="alert"
+                aria-labelledby="delete-warning"
+              >
+                <div id="delete-warning" className="flex gap-2 items-start">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" aria-hidden />
                   <p className="text-sm text-rose-800 font-medium">
                     This will permanently delete your account and all data. There is no recovery.
@@ -320,6 +330,7 @@ export default function SettingsPage() {
                   <Button
                     type="button"
                     variant="ghost"
+                    aria-label="Cancel account deletion"
                     onClick={() => {
                       setShowDeleteConfirm(false);
                       setDeleteConfirmText('');
@@ -333,6 +344,8 @@ export default function SettingsPage() {
                     variant="danger"
                     disabled={!deleteConfirmValid}
                     isLoading={deleteMutation.isPending}
+                    aria-label="Confirm permanent account deletion"
+                    aria-disabled={!deleteConfirmValid}
                     onClick={() => {
                       if (deleteConfirmValid) {
                         setDeleteError(null);

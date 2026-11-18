@@ -140,6 +140,15 @@ export default function ConversationPage({ params }: Props) {
           created_at: new Date().toISOString(),
         },
       ]);
+      
+      // Announce to screen readers that response is complete
+      const announcement = document.createElement('div');
+      announcement.setAttribute('role', 'status');
+      announcement.setAttribute('aria-live', 'polite');
+      announcement.className = 'sr-only';
+      announcement.textContent = 'AI response complete';
+      document.body.appendChild(announcement);
+      setTimeout(() => document.body.removeChild(announcement), 1000);
     }
 
     setStreamedContent('');
@@ -149,8 +158,25 @@ export default function ConversationPage({ params }: Props) {
     queryClient.invalidateQueries({ queryKey: ['messages', conversationId] });
     queryClient.invalidateQueries({ queryKey: ['session-status', conversationId] });
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    
+    // Auto-generate title if this is the first exchange and title is still "New Conversation"
+    (async () => {
+      try {
+        const conversations = await chatApi.listConversations({ limit: 100 });
+        const currentConv = conversations.find((c) => c.id === conversationId);
+        if (currentConv && currentConv.title === 'New Conversation' && messages.length === 1) {
+          // This was the first message exchange, generate a title
+          await chatApi.generateTitle(conversationId);
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        }
+      } catch (err) {
+        // Silently fail title generation - not critical
+        console.warn('Could not auto-generate title:', err);
+      }
+    })();
+    
     textareaRef.current?.focus();
-  }, [conversationId, queryClient]);
+  }, [conversationId, queryClient, messages.length]);
 
   const handleStreamError = useCallback((err: string) => {
     setStreamError(err);
@@ -179,6 +205,12 @@ export default function ConversationPage({ params }: Props) {
     if (prefill && !prefillSentRef.current && !isNaN(conversationId)) {
       prefillSentRef.current = true;
       const content = decodeURIComponent(prefill);
+      
+      // Clean the URL by removing the prefill parameter to prevent re-sending on refresh
+      const url = new URL(window.location.href);
+      url.searchParams.delete('prefill');
+      window.history.replaceState({}, '', url.pathname + url.search);
+      
       // Optimistically add user message then stream
       const optimisticMsg: Message = {
         id: Date.now(),
@@ -382,7 +414,7 @@ export default function ConversationPage({ params }: Props) {
 
         {/* Streaming AI response */}
         {isStreaming && (
-          <div className="flex gap-3 items-start" aria-live="polite" aria-atomic="false">
+          <div className="flex gap-3 items-start" aria-live="assertive" aria-atomic="true">
             <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4 text-white" aria-hidden />
             </div>
@@ -588,9 +620,16 @@ function MessageBubble({ message }: { message: Message }) {
             {formatTime(message.created_at)}
           </time>
           {message.is_crisis_triggered && (
-            <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
+            <span className="text-xs text-amber-700 font-medium flex items-center gap-1">
               <AlertTriangle className="w-3 h-3" aria-hidden />
               Support note
+            </span>
+          )}
+          {/* Source label — shown on AI messages that used RAG */}
+          {!isUser && citations?.sources && citations.sources.length > 0 && (
+            <span className="text-xs text-indigo-400 font-medium flex items-center gap-1" title="This response included information from our knowledge base">
+              <ExternalLink className="w-3 h-3" aria-hidden />
+              Source
             </span>
           )}
         </div>

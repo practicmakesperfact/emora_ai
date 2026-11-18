@@ -77,6 +77,68 @@ class ChatService:
         logger.info("Conversation started", user_id=user_id, conversation_id=conversation.id)
         return conversation
 
+    async def generate_conversation_title(
+        self, conversation_id: int, user_id: int, first_message: str
+    ) -> str:
+        """
+        Generate a concise conversation title from the first user message.
+        Uses Groq LLM to create a 3-6 word title.
+
+        Args:
+            conversation_id: The conversation ID.
+            user_id: The authenticated user ID (for ownership check).
+            first_message: The first user message content.
+
+        Returns:
+            A short, descriptive title (max 40 characters).
+        """
+        # Verify ownership
+        conv = await self.get_conversation(conversation_id, user_id)
+
+        # Generate title via Groq
+        try:
+            response = await self._groq.chat.completions.create(
+                model=settings.GROQ_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a title generator. Create a concise 3-6 word title "
+                            "for a mental health support conversation based on the user's first message. "
+                            "The title should be empathetic and descriptive. "
+                            "Examples: 'Dealing with exam anxiety', 'Struggling to sleep', 'Need someone to talk'"
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Generate a title for this message:\n\n{first_message[:200]}",
+                    },
+                ],
+                temperature=0.7,
+                max_tokens=20,
+            )
+            generated_title = response.choices[0].message.content or "Conversation"
+            # Truncate to 40 characters
+            title = generated_title.strip()[:40].strip()
+            
+            # Update the conversation title
+            await self._repo.update_conversation(conv, title=title)
+            await self._db.commit()
+            
+            logger.info(
+                "Auto-generated conversation title",
+                conversation_id=conversation_id,
+                title=title,
+            )
+            return title
+        except Exception as e:
+            logger.error("Failed to generate conversation title", error=str(e))
+            # Fallback: use first 40 chars of the message
+            fallback = first_message[:40].strip()
+            await self._repo.update_conversation(conv, title=fallback)
+            await self._db.commit()
+            return fallback
+
     async def list_conversations(
         self,
         user_id: int,

@@ -51,10 +51,14 @@ export function Button({
     <button
       className={cn(base, variants[variant], sizes[size], className)}
       disabled={disabled || isLoading}
+      aria-busy={isLoading}
       {...props}
     >
       {isLoading ? (
-        <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+          <span className="sr-only">Loading</span>
+        </>
       ) : (
         leftIcon && <span aria-hidden>{leftIcon}</span>
       )}

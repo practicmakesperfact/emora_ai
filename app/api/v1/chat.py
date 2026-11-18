@@ -168,6 +168,46 @@ async def rename_conversation(
     return conversation
 
 
+# ─── Auto-generate Title ──────────────────────────────────────────────────────
+
+@router.post(
+    "/{conversation_id}/generate-title",
+    response_model=ConversationOut,
+    status_code=status.HTTP_200_OK,
+    summary="Auto-generate conversation title",
+    description="Generate a title from the first user message using AI.",
+)
+async def generate_title(
+    conversation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> ConversationOut:
+    """Auto-generate a conversation title from the first message."""
+    service = ChatService(db)
+    
+    # Get messages to find the first user message
+    messages = await service.get_messages(
+        conversation_id=conversation_id,
+        user_id=current_user.id,
+        skip=0,
+        limit=1,
+    )
+    
+    if not messages:
+        # No messages yet, keep current title
+        return await service.get_conversation(conversation_id, current_user.id)
+    
+    first_message = messages[0].content
+    await service.generate_conversation_title(
+        conversation_id=conversation_id,
+        user_id=current_user.id,
+        first_message=first_message,
+    )
+    
+    # Return updated conversation
+    return await service.get_conversation(conversation_id, current_user.id)
+
+
 # ─── Get Message History ───────────────────────────────────────────────────────
 
 @router.get(

@@ -104,4 +104,10 @@ export const chatApi = {
     const res = await apiClient.get<DailyUsage>('/chat/daily-usage');
     return res.data;
   },
+
+  /** POST /chat/{id}/generate-title — Auto-generate title from first message */
+  generateTitle: async (conversationId: number): Promise<Conversation> => {
+    const res = await apiClient.post<Conversation>(`/chat/${conversationId}/generate-title`);
+    return res.data;
+  },
 };
