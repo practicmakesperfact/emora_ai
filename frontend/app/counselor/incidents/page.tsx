@@ -101,9 +101,17 @@ export default function CounselorIncidentsPage() {
                       <p className="text-sm text-slate-700 font-medium truncate">
                         &ldquo;{truncate(inc.message_content, 120)}&rdquo;
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        User ID #{inc.user_id} · Actions taken: {inc.action_taken}
-                      </p>
+                      <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                        <p className="font-medium">
+                          {inc.user?.full_name || `User #${inc.user_id}`} · {inc.user?.email}
+                        </p>
+                        {inc.user?.emergency_contact && (
+                          <p>Emergency contact: {inc.user.emergency_contact}</p>
+                        )}
+                        <p className="text-slate-400">
+                          Actions taken: {inc.action_taken}
+                        </p>
+                      </div>
                     </div>
                     <ArrowRight className="w-4 h-4 text-slate-300 shrink-0" aria-hidden />
                   </Card>

@@ -192,9 +192,42 @@ export default function CounselorIncidentDetailPage({ params }: Props) {
                   {incident.action_taken}
                 </span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">User ID</span>
-                <span className="font-medium text-slate-700">{incident.user_id}</span>
+            </div>
+          </Card>
+
+          {/* User Contact Information */}
+          <Card>
+            <h2 className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <User className="w-4 h-4 text-indigo-500" aria-hidden />
+              Student Contact Information
+            </h2>
+            <div className="space-y-2 text-xs">
+              <div>
+                <span className="text-slate-400 block mb-0.5">Name</span>
+                <span className="font-semibold text-slate-800">
+                  {incident.user?.full_name || `User #${incident.user_id}`}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block mb-0.5">Email</span>
+                <a 
+                  href={`mailto:${incident.user?.email}`}
+                  className="font-medium text-indigo-600 hover:text-indigo-700 underline"
+                >
+                  {incident.user?.email || 'Not available'}
+                </a>
+              </div>
+              {incident.user?.emergency_contact && (
+                <div>
+                  <span className="text-slate-400 block mb-0.5">Emergency Contact</span>
+                  <span className="font-medium text-slate-700">
+                    {incident.user.emergency_contact}
+                  </span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-slate-400 block mb-0.5">User ID</span>
+                <span className="font-mono text-slate-600">#{incident.user_id}</span>
               </div>
             </div>
           </Card>

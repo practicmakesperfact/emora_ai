@@ -163,9 +163,17 @@ export interface JournalCreate {
 
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 
+export interface UserContactInfo {
+  id: number;
+  full_name: string;
+  email: string;
+  emergency_contact?: string;
+}
+
 export interface Incident {
   id: number;
   user_id: number;
+  user?: UserContactInfo;  // Added: Full user contact info for counselors
   conversation_id?: number;
   message_content: string;
   risk_level: RiskLevel;
